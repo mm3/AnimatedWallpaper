@@ -1,0 +1,12 @@
+<resources>
+
+    <string name="app_name">AnimatedWallpaper</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="settings">Animated Wallpaper Settings</string>
+    <string name="title_activity_settings_wallpaper">Settings Wallpaper</string>
+    <string name="title_service_wallpaper">Animated Live Wallpaper</string>
+    <string name="description">Animated Wallpaper</string>
+    <string name="settings_file_name">File Name</string>
+    <string name="settings_file_name_summary">Files with extentions gif, jpg, png, svg</string>
+
+</resources>
