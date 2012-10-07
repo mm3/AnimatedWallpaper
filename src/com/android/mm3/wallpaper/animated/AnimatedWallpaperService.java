@@ -2,7 +2,6 @@ package com.android.mm3.wallpaper.animated;
 
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
-import android.graphics.Movie;
 import android.os.Handler;
 import android.os.SystemClock;
 import android.preference.PreferenceManager;
@@ -13,7 +12,7 @@ public class AnimatedWallpaperService extends WallpaperService {
 
 	static final public String SHARED_PREFERENCES_NAME = "AnimatedWallpaperSettings";
 	
-	protected Movie animation = null;
+	protected Animation animation = new Animation();
 	
 	@Override
 	public Engine onCreateEngine() {
@@ -42,7 +41,10 @@ public class AnimatedWallpaperService extends WallpaperService {
 		@Override
 		public void onSharedPreferenceChanged(SharedPreferences p, String k) {
 			String fileName = p.getString( "file_name", "none" );
-			animation = Movie.decodeFile(fileName);
+			if(!fileName.equalsIgnoreCase("none"))
+			{
+				animation = new GifAnimation(fileName);
+			}
 		}
 		
 
@@ -89,7 +91,7 @@ public class AnimatedWallpaperService extends WallpaperService {
 		protected void drawFrame( final Canvas c, final float t )
 		{
 			c.save();
-			animation.draw( c, 0, 0 );
+			animation.draw(c);
 			c.restore();
 		}
 
