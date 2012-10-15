@@ -7,16 +7,27 @@ import android.os.SystemClock;
 import android.preference.PreferenceManager;
 import android.service.wallpaper.WallpaperService;
 import android.view.SurfaceHolder;
+import java.io.File;
+//import java.io.*;
+import android.widget.Toast;
+import android.util.Log;
+import android.content.*;
 
 public class AnimatedWallpaperService extends WallpaperService {
 
 	static final public String SHARED_PREFERENCES_NAME = "AnimatedWallpaperSettings";
+	static final public String TAG = "AnimatedWallpaperService";
 	
-	protected Animation animation = new Animation();
+	protected Animation defaultAnimation = new Animation();
+	protected Animation animation = defaultAnimation;
 	
 	@Override
-	public Engine onCreateEngine() {
+	public Engine onCreateEngine() {		
 		return new WallpaperEngine();
+	}
+	
+	public Context getContext() {
+		return this;
 	}
 	
 	protected class WallpaperEngine extends Engine implements SharedPreferences.OnSharedPreferenceChangeListener
@@ -41,9 +52,24 @@ public class AnimatedWallpaperService extends WallpaperService {
 		@Override
 		public void onSharedPreferenceChanged(SharedPreferences p, String k) {
 			String fileName = p.getString( "file_name", "none" );
-			if(!fileName.equalsIgnoreCase("none"))
-			{
-				animation = new GifAnimation(fileName);
+			Log.w(TAG, "setup file: "+fileName);
+			File file = new File(fileName);
+			if(file.isDirectory()) {
+				Log.w(TAG, "setup directory with walpapers");
+				animation = new FolderAnimation(fileName);
+			}
+			else if(file.isFile()) {
+				Log.w(TAG, "file is valide");
+				if(file.getName().endsWith(".gif"))
+				{
+					//Toast.makeText(getContext(),"this is gif", 7000).show();
+					Log.w(TAG, "setup gif wallpaper");
+					animation = new GifAnimation(fileName);
+				}
+			}
+			else {
+				Log.w(TAG, "setup default animation");
+				animation = defaultAnimation;
 			}
 		}
 		
@@ -91,7 +117,10 @@ public class AnimatedWallpaperService extends WallpaperService {
 		protected void drawFrame( final Canvas c, final float t )
 		{
 			c.save();
+			//Toast.makeText(getContext(),"drawFrame", 2000).show();
+			//Log.w(TAG, "drawFrame");
 			animation.draw(c);
+			delay = animation.getDelay();
 			c.restore();
 		}
 

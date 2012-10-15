@@ -9,14 +9,15 @@ import android.widget.*;
 
 
 
-//public class SettingsWallpaperActivity extends PreferenceActivity {
-public class SettingsWallpaperActivity extends Activity{
+public class SettingsWallpaperActivity extends PreferenceActivity {
+// public class SettingsWallpaperActivity extends Activity{
     
 	@Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-      //  addPreferencesFromResource( R.xml.settings );
-        setContentView(R.layout.activity_settings_wallpaper);
+		getPreferenceManager().setSharedPreferencesName(AnimatedWallpaperService.SHARED_PREFERENCES_NAME);
+        addPreferencesFromResource( R.xml.settings );
+        //setContentView(R.layout.activity_settings_wallpaper);
     }
 
 }
