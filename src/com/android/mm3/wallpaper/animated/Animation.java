@@ -7,6 +7,14 @@ import android.util.Log;
 public class Animation
 {
 	static final public String TAG = "Animation";
+	
+	static final public int STYLE_CENTRED = 0;
+	static final public int STYLE_RESIZED = 1;
+	static final public int STYLE_MOSTED  = 2;
+	
+	public int style = Animation.STYLE_CENTRED;
+	
+	
 	public void draw (Canvas c) {
 		Paint p = new Paint();
 		Log.w(TAG, "draw");

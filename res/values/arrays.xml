@@ -1,0 +1,12 @@
+<resources>
+    <string-array name="entries_style">
+        <item>Centred</item>
+        <item>Resized</item>
+        <item>Mosted</item>
+    </string-array>
+    <string-array name="entryvalues_style">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </string-array>
+</resources>
