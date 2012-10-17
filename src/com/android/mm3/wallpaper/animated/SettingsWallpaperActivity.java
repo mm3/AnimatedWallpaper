@@ -16,7 +16,7 @@ public class SettingsWallpaperActivity extends PreferenceActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 		getPreferenceManager().setSharedPreferencesName(AnimatedWallpaperService.SHARED_PREFERENCES_NAME);
-        addPreferencesFromResource( R.xml.settings );
+        addPreferencesFromResource( R.layout.settings );
         //setContentView(R.layout.activity_settings_wallpaper);
     }
 

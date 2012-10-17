@@ -6,8 +6,8 @@
 						android:title="@string/settings_file_name"
 						android:summary="@string/settings_file_name_summary" />
 
-	<ListPreference 
-		android:key="style_anim" 
+    <ListPreference
+		android:key="style_anim" 
 		android:title="@string/title_style" 
 		android:summary="@string/summary_style" 
 		android:entries="@array/entries_style" 

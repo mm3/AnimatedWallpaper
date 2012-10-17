@@ -25,7 +25,7 @@ public class GifAnimation extends Animation
 	
 	public GifAnimation(String s)
 	{
-		init(s, Animation.STYLE_RESIZED);
+		init(s, Animation.STYLE_MOSTED);
 	}
 	
 	public GifAnimation(String s, int style)
@@ -120,6 +120,10 @@ public class GifAnimation extends Animation
 					drawables[counter].draw(c);
 				}
 			}
+		}
+		else
+		{
+			c.drawBitmap(bitmap, 0, 0, null);
 		}
 		counter++;
 	}

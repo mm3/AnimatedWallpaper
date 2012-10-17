@@ -43,7 +43,7 @@ public class AnimatedWallpaperService extends WallpaperService {
 		public WallpaperEngine()
 		{
 			super();
-			PreferenceManager.setDefaultValues(AnimatedWallpaperService.this, R.xml.settings, false );
+			PreferenceManager.setDefaultValues(AnimatedWallpaperService.this, R.layout.settings, false );
 			SharedPreferences p = AnimatedWallpaperService.this.getSharedPreferences(	SHARED_PREFERENCES_NAME, 0 );
 			p.registerOnSharedPreferenceChangeListener( this );
 			onSharedPreferenceChanged( p, null );
@@ -52,6 +52,7 @@ public class AnimatedWallpaperService extends WallpaperService {
 		@Override
 		public void onSharedPreferenceChanged(SharedPreferences p, String k) {
 			String fileName = p.getString( "file_name", "none" );
+			String style = p.getString("style_anim", "0");
 			Log.w(TAG, "setup file: "+fileName);
 			File file = new File(fileName);
 			if(file.isDirectory()) {
@@ -64,7 +65,7 @@ public class AnimatedWallpaperService extends WallpaperService {
 				{
 					//Toast.makeText(getContext(),"this is gif", 7000).show();
 					Log.w(TAG, "setup gif wallpaper");
-					animation = new GifAnimation(fileName);
+					animation = new GifAnimation(fileName, Integer.valueOf(style));
 				}
 			}
 			else {
