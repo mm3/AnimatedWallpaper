@@ -5,13 +5,13 @@
 	<EditTextPreference	android:key="file_name"
 						android:title="@string/settings_file_name"
 						android:summary="@string/settings_file_name_summary" />
-						
+
 	<ListPreference 
 		android:key="style_anim" 
-		android:title="@string/title_style"
-		android:summary="@string/summary_style" 
-		android:entries="@array/entries_style"
-		android:entryValues="@array/entryvalues_style"
-		android:dialogTitle="@string/title_style" />
-	
+		android:title="@string/title_style" 
+		android:summary="@string/summary_style" 
+		android:entries="@array/entries_style" 
+		android:entryValues="@array/entryvalues_style" 
+		android:dialogTitle="@string/title_style"/>
+		
 </PreferenceScreen>
