@@ -12,6 +12,7 @@ import java.io.File;
 import android.widget.Toast;
 import android.util.Log;
 import android.content.*;
+import java.util.concurrent.*;
 
 public class AnimatedWallpaperService extends WallpaperService {
 
@@ -34,6 +35,8 @@ public class AnimatedWallpaperService extends WallpaperService {
 	{
 
 		protected int delay = 40;
+		
+		private int user_delay = 0;
 
 		private Handler handler = new Handler();
 		private Runnable runnable = new Runnable(){ public void run() { nextFrame(); 	} };
@@ -53,6 +56,7 @@ public class AnimatedWallpaperService extends WallpaperService {
 		public void onSharedPreferenceChanged(SharedPreferences p, String k) {
 			String fileName = p.getString( "file_name", "none" );
 			String style = p.getString("style_anim", "0");
+			user_delay = Integer.valueOf(p.getString("delay_anim", "0"));
 			Log.w(TAG, "setup file: "+fileName);
 			File file = new File(fileName);
 			if(file.isDirectory()) {
@@ -66,6 +70,15 @@ public class AnimatedWallpaperService extends WallpaperService {
 					//Toast.makeText(getContext(),"this is gif", 7000).show();
 					Log.w(TAG, "setup gif wallpaper");
 					animation = new GifAnimation(fileName, Integer.valueOf(style));
+				}
+				else if(file.getName().endsWith(".svg"))
+				{
+					Log.w(TAG, "setup svg wallpaper");
+					animation = new SvgAnimation(fileName, Integer.valueOf(style));
+				}
+				else {
+					Log.w(TAG, "setup default animation");
+					animation = defaultAnimation;					
 				}
 			}
 			else {
@@ -121,7 +134,13 @@ public class AnimatedWallpaperService extends WallpaperService {
 			//Toast.makeText(getContext(),"drawFrame", 2000).show();
 			//Log.w(TAG, "drawFrame");
 			animation.draw(c);
-			delay = animation.getDelay();
+			if( user_delay > 0 ) {
+				delay = user_delay;
+			} 
+			else
+			{
+			    delay = animation.getDelay();
+			}
 			c.restore();
 		}
 

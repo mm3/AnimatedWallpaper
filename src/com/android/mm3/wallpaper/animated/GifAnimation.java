@@ -9,6 +9,7 @@ import java.io.FileInputStream;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.Color;
+import android.graphics.Paint;
 
 
 public class GifAnimation extends Animation
@@ -16,12 +17,12 @@ public class GifAnimation extends Animation
 	static final public String TAG = "GifAnimation";
 	
 
-	protected GifDecoder gifDecoder = null;
-	private Bitmap bitmap = null;
-	private int counter = 0;
-	private int maxCount = 0;
-	private InputStream is = null;
-	private Drawable[] drawables = null;
+	protected Decoder gifDecoder = null;
+	protected Bitmap bitmap = null;
+	protected int counter = 0;
+	protected int maxCount = 0;
+	protected Drawable[] drawables = null;
+	protected Paint paint = null;
 	
 	public GifAnimation(String s)
 	{
@@ -39,6 +40,11 @@ public class GifAnimation extends Animation
 		
 		this.style = style;
 		
+		paint = new Paint();
+		paint.setAntiAlias(true);
+		
+		InputStream is = null;
+		
         try {
             is = new FileInputStream(s);
 			gifDecoder = new GifDecoder();
@@ -48,6 +54,14 @@ public class GifAnimation extends Animation
         catch (Exception e) {
             Log.e(TAG, "GifAnimation exeption" + e);
         }
+		finally {
+			try {
+			    if(is != null) {
+				    is.close();
+				    is = null;
+			    }
+			} catch (Exception e) {}
+		}
 		Log.w(TAG, "GifAnimation constructor end");
 	}
 	
@@ -63,7 +77,8 @@ public class GifAnimation extends Animation
 		{
 			int dx = (c.getWidth() - bitmap.getWidth()) / 2;
 			int dy = (c.getHeight() - bitmap.getHeight()) / 2;
-			c.drawBitmap(bitmap, dx, dy, null);
+			//c.setBitmap(bitmap);
+			c.drawBitmap(bitmap, dx, dy, paint);
 		}
 		else if (style == Animation.STYLE_MOSTED)
 		{
@@ -78,7 +93,7 @@ public class GifAnimation extends Animation
 			{
 				for(int i = 0; i < countX; i++)
 				{
-					c.drawBitmap(bitmap, dx + i*bitmap.getWidth(), dy + j*bitmap.getHeight(), null);
+					c.drawBitmap(bitmap, dx + i*bitmap.getWidth(), dy + j*bitmap.getHeight(), paint);
 				}
 			}
 		}
@@ -92,11 +107,13 @@ public class GifAnimation extends Animation
 			{
 				drawables[counter] = new BitmapDrawable(bitmap);
 			}
-			float scaleb = bitmap.getWidth()/bitmap.getHeight();
-			float scalec = c.getWidth()/c.getHeight();
-			if(scalec <= scaleb)
+			float scaleb = (float)bitmap.getWidth()/(float)bitmap.getHeight();
+			float scalec = (float)c.getWidth()/(float)c.getHeight();
+			//Log.w(TAG, "canvas width="+c.getWidth()+" height="+c.getHeight());
+			//Log.w(TAG, "bitmap width="+bitmap.getWidth()+" height="+bitmap.getHeight());
+			if(scalec < scaleb)
 			{
-				int height = bitmap.getHeight()*c.getWidth()/bitmap.getWidth();
+				int height = (int)(((float)c.getWidth())/scaleb);
 				int countd = c.getHeight() / height;
 				int dd = (c.getHeight() - countd*height) / 2 - height;
 				countd += 2;
@@ -109,7 +126,7 @@ public class GifAnimation extends Animation
 			}
 			else 
 			{
-				int width = bitmap.getWidth()*c.getHeight()/bitmap.getHeight();
+				int width = (int)(((float)c.getHeight())*scaleb);
 				int countd = c.getWidth() / width;
 				int dd = (c.getWidth() - countd*width) / 2 - width;
 				countd += 2;
@@ -123,7 +140,7 @@ public class GifAnimation extends Animation
 		}
 		else
 		{
-			c.drawBitmap(bitmap, 0, 0, null);
+			c.drawBitmap(bitmap, 0, 0, paint);
 		}
 		counter++;
 	}

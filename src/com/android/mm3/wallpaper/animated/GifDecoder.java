@@ -6,7 +6,7 @@ import java.util.Vector;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 
-public class GifDecoder {
+public class GifDecoder extends Decoder{
         /**
          * File read status: No errors.
          */

@@ -8,6 +8,8 @@
     <string name="description">Animated Wallpaper</string>
     <string name="settings_file_name">File Name</string>
     <string name="settings_file_name_summary">Files with extentions gif, jpg, png, svg</string>
+    <string name="settings_delay">Delay Animation</string>
+    <string name="settings_delay_summary">if 0 then standart delay</string>
 	<string name="title_style">Style</string>
 	<string name="summary_style">Style of animation</string>
 	

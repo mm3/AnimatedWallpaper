@@ -14,4 +14,8 @@
 		android:entryValues="@array/entryvalues_style" 
 		android:dialogTitle="@string/title_style"/>
 		
+	<EditTextPreference	android:key="delay_anim"
+		android:title="@string/settings_delay"
+		android:summary="@string/settings_delay_summary" />
+		
 </PreferenceScreen>
