@@ -70,16 +70,18 @@ public class SvgDecoder extends Decoder {
 			Log.w(TAG, "parse "+a++); //3
             SVGHandler handler = new SVGHandler(picture);
 			Log.w(TAG, "parse "+a++); //4
-            handler.setColorSwap(searchColor, replaceColor);
+            InputSource is = new InputSource(in);
 			Log.w(TAG, "parse "+a++); //5
-            handler.setWhiteMode(whiteMode);
+            handler.setColorSwap(searchColor, replaceColor);
 			Log.w(TAG, "parse "+a++); //6
+            handler.setWhiteMode(whiteMode);
+			Log.w(TAG, "parse "+a++); //7
             xr.setContentHandler(handler);
- 			Log.w(TAG, "parse "+a++); //7
-			xr.parse(new InputSource(in));
-			Log.w(TAG, "parse "+a++); //8
-            SVG result = new SVG(picture, handler.bounds);
+ 			Log.w(TAG, "parse "+a++); //8
+			xr.parse(is);
 			Log.w(TAG, "parse "+a++); //9
+            SVG result = new SVG(picture, handler.bounds);
+			Log.w(TAG, "parse "+a++); //10
             // Skip bounds if it was an empty pic
             if (!Float.isInfinite(handler.limits.top)) {
                 result.setLimits(handler.limits);
@@ -970,7 +972,7 @@ public class SvgDecoder extends Decoder {
 		/**
 		 * Array of powers of ten. Using double instead of float gives a tiny bit more precision.
 		 */
-		private static final double[] pow10 = new double[128];
+		private double[] pow10 = new double[128];
 
 	    {
 			for (int i = 0; i < pow10.length; i++) {
