@@ -1,27 +1,35 @@
 package com.android.mm3.wallpaper.animated;
 
+import java.awt.*;
+import java.io.*;
+import java.util.*;
+import android.graphics.*;
 
-	import java.awt.*;
-	import java.io.*;
-	import java.util.*;
-	import java.util.List;
-    import android.graphics.*;
+import java.util.zip.CRC32;
+import java.util.zip.DataFormatException;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
 
 	/**
-	 * TODO
+	 * TO-DO
 	 */
 	public class ApngDecoder extends Decoder
 	{
-		/** TODO */
+		/** TO-DO */
 		public static final int acTL = 0x6163544C;
-		/** TODO */
+		/** TO-DO */
 		public static final int fcTL = 0x6663544C;
-		/** TODO */
+		/** TO-DO */
 		public static final int fdAT = 0x66644154;
+		
+		public static final int BITMASK		= 2;
+		public static final int OPAQUE 		= 1;
+		public static final int TRANSLUCENT 	= 3;
 
-//		private static final PngConfig DEFAULT_CONFIG =
-//		new PngConfig.Builder().readLimit(PngConfig.READ_EXCEPT_DATA).build();
+		private static final PngConfig DEFAULT_CONFIG =
+		new PngConfig.Builder().readLimit(PngConfig.READ_EXCEPT_DATA).build();
 
+	    private final PngConfig config;
 		private final List chunks = new ArrayList();
 		private final List frames = new ArrayList();
 		private final Map frameData = new HashMap();
@@ -38,21 +46,33 @@ package com.android.mm3.wallpaper.animated;
 		private final Map props = new HashMap();
     	private boolean read = false;
 	
+    	
+    	
 		/**
-		 * TODO
+		 * TO-DO
 		 */
 		public ApngDecoder ()
 		{
-			//super(DEFAULT_CONFIG);
+			this.config = DEFAULT_CONFIG;
 		}
 
 		/**
-		 * TODO
+		 * TO-DO
 		 */
 	//	public AnimatedPngImage(PngConfig config)
 	//	{
 	//		super(new PngConfig.Builder(config).readLimit(PngConfig.READ_EXCEPT_DATA).build());
 	//	}
+		
+		public static class Dimension {
+			public Dimension(int width, int height) {
+				this.width = width;
+				this.height = height;
+			}
+			int width = 0;
+			int height = 0;
+			
+		}
 
 		private void reset()
 		{
@@ -64,7 +84,7 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		/**
-		 * TODO
+		 * TO-DO
 		 */
 		public boolean isAnimated()
 		{
@@ -73,7 +93,7 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		/**
-		 * TODO
+		 * TO-DO
 		 */
 		public int getNumFrames()
 		{
@@ -82,7 +102,7 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		/**
-		 * TODO
+		 * TO-DO
 		 */
 		public int getNumPlays()
 		{
@@ -91,7 +111,7 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		/**
-		 * TODO
+		 * TO-DO
 		 */
 		public Bitmap getFrame(int index)
 		{
@@ -104,7 +124,7 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		/**
-		 * TODO
+		 * TO-DO
 		 */
 		public boolean isClearRequired()
 		{
@@ -117,36 +137,35 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		/**
-		 * TODO
+		 * TO-DO
 		 */
-		public BufferedImage[] readAllFrames(File file)
+		public Bitmap[] readAllFrames(InputStream in)
 		throws IOException
 		{
-			read(file);
-			BufferedImage[] images = new BufferedImage[getNumFrames()];
+			read(in);
+			Bitmap[] images = new Bitmap[getNumFrames()];
 			for (int i = 0; i < images.length; i++)
-				images[i] = readFrame(file, getFrame(i));
+				images[i] = readFrame(in, getFrameControl(i));
 			return images;
 		}
 
-		// TODO: make sure that file is what we read before?
-		// TODO: make sure that frame control is from this image?
+		// TO-DO: make sure that file is what we read before?
+		// TO-DO: make sure that frame control is from this image?
 		/**
-		 * TODO
+		 * TO-DO
 		 */
-		public BufferedImage readFrame(File file, FrameControl frame)
+		public Bitmap readFrame(InputStream in, FrameControl frame)
 		throws IOException
 		{
 			assertRead();
 			if (frame == null)
-				return readImage(file, defaultImageData, new Dimension(getWidth(), getHeight()));
-			return readImage(file, (List)frameData.get(frame), frame.getBounds().getSize());
+				return readImage(in, defaultImageData, new Dimension(getWidth(), getHeight()));
+			return readImage(in, (List)frameData.get(frame), frame.getBounds().getSize());
 		}
 
-		private BufferedImage readImage(File file, List data, Dimension size)
+		private Bitmap readImage(InputStream in, List data, Dimension size)
 		throws IOException
 		{
-			FrameDataInputStream in = new FrameDataInputStream(file, data);
 			try {
 				return createImage(in, size);
 			} finally {
@@ -218,7 +237,7 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		private void add(int seq, Object chunk)
-		throws PngException
+		throws IOException
 		{
 			if (chunks.size() != seq ||
 				(seq == 0 && !(chunk instanceof FrameControl)))
@@ -227,9 +246,9 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		private static void error(String message)
-		throws PngException
+		throws IOException
 		{
-			throw new PngException(message);
+			throw new IOException(message);
 		}
 
 		private FrameControl readFrameControl(DataInput in)
@@ -316,9 +335,17 @@ package com.android.mm3.wallpaper.animated;
 				throw e;
 			}
 		}
+	
 		
+/////////////////////////============== PngImage start ==================//////////////////
+
+    public PngConfig getConfig()
+    {
+        return config;
+    }
+	
 		
-	public BufferedImage read(InputStream in, boolean close)
+	public Bitmap read(InputStream in, boolean close)
     throws IOException
     {
         if (in == null)
@@ -327,7 +354,7 @@ package com.android.mm3.wallpaper.animated;
         props.clear();
 
         int readLimit = config.getReadLimit();
-        BufferedImage image = null;
+        Bitmap image = null;
         StateMachine machine = new StateMachine(this);
         try {
             PngInputStream pin = new PngInputStream(in);
@@ -351,24 +378,17 @@ package com.android.mm3.wallpaper.animated;
                         }
                     }
                     if (!isMultipleOK(type) && !seen.add(Integers.valueOf(type)))
-                        throw new PngException("Multiple " + PngConstants.getChunkName(type) + " chunks are not allowed",
-                                               !PngConstants.isAncillary(type));
+                        throw new IOException("Multiple " + PngConstants.getChunkName(type) + " chunks are not allowed");
                     try {
                         readChunk(type, pin, pin.getOffset(), pin.getRemaining());
-                    } catch (PngException e) {
-                        throw e;
                     } catch (IOException e) {
-                        throw new PngException("Malformed " + PngConstants.getChunkName(type) + " chunk", e,
-                                               !PngConstants.isAncillary(type));
+                        throw e;
                     }
                     skipFully(pin, pin.getRemaining());
                     if (type == PngConstants.IHDR && readLimit == PngConfig.READ_HEADER)
                         return null;
-                } catch (PngException exception) {
-                    if (exception.isFatal())
+                } catch (IOException exception) {
                         throw exception;
-                    skipFully(pin, pin.getRemaining());
-                    handleWarning(exception);
                 }
                 pin.endChunk(type);
             }
@@ -379,24 +399,27 @@ package com.android.mm3.wallpaper.animated;
         }
     }
 
-    protected BufferedImage createImage(InputStream in, Dimension size)
+    protected Bitmap createImage(InputStream in, Dimension size)
     throws IOException
     {
-        return ImageFactory.createImage(this, in, size);
+    	return BitmapFactory.decodeStream(in);
+    	//throw new IOException("Could not implemented ImageFactory.createImage(this, in, size);");
+///////// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    	
+        //return ImageFactory.createImage(this, in, size);
     }
 
-    protected boolean handlePass(BufferedImage image, int pass)
+    protected boolean handlePass(Bitmap image, int pass)
     {
         return true;
     }
 
-    protected boolean handleProgress(BufferedImage image, float pct)
+    protected boolean handleProgress(Bitmap image, float pct)
     {
         return true;
     }
 
-    protected void handleWarning(PngException e)
-    throws PngException
+    protected void handleWarning(IOException e)
+    throws IOException
     {
         if (config.getWarningsFatal())
             throw e;
@@ -482,18 +505,26 @@ package com.android.mm3.wallpaper.animated;
 			case PngConstants.COLOR_TYPE_PALETTE:
 				byte[] palette = (byte[])getProperty(PngConstants.PALETTE, byte[].class, true);
 				int index = background[0] * 3;
-				return new Color(0xFF & palette[index + 0], 
-								 0xFF & palette[index + 1], 
-								 0xFF & palette[index + 2]);
+				Color colorp = new Color();
+				colorp.rgb(0xFF & palette[index + 0], 
+						 0xFF & palette[index + 1], 
+						 0xFF & palette[index + 2]);
+				return colorp;
 			case PngConstants.COLOR_TYPE_GRAY:
 			case PngConstants.COLOR_TYPE_GRAY_ALPHA:
 				int gray = background[0] * 255 / ((1 << getBitDepth()) - 1);
-				return new Color(gray, gray, gray);
+				Color colorg = new Color();
+				colorg.rgb(gray, gray, gray);
+				return colorg;
 			default:
 				if (getBitDepth() == 16) {
-					return new Color(background[0] >> 8, background[1] >> 8, background[2] >> 8);
+					Color color = new Color();
+					color.rgb(background[0] >> 8, background[1] >> 8, background[2] >> 8);
+					return color;
 				} else {
-					return new Color(background[0], background[1], background[2]);
+					Color color = new Color();
+					color.rgb(background[0], background[1], background[2]);
+					return color;
 				}
         }
     }
@@ -532,7 +563,7 @@ package com.android.mm3.wallpaper.animated;
         List list = (List)getProperty(PngConstants.TEXT_CHUNKS, List.class, false);
         if (key != null && list != null) {
             for (Iterator it = list.iterator(); it.hasNext();) {
-                // TODO: check list value type before cast?
+                // TO-DO: check list value type before cast?
                 TextChunk chunk = (TextChunk)it.next();
                 if (chunk.getKeyword().equals(key))
                     return chunk;
@@ -594,16 +625,16 @@ package com.android.mm3.wallpaper.animated;
 	
 	public class FrameControl
 	{
-		/** TODO */
+		/** TO-DO */
 		public static final int DISPOSE_NONE = 0;
-		/** TODO */
+		/** TO-DO */
 		public static final int DISPOSE_BACKGROUND = 1;
-		/** TODO */
+		/** TO-DO */
 		public static final int DISPOSE_PREVIOUS = 2;
 
-		/** TODO */
+		/** TO-DO */
 		public static final int BLEND_SOURCE = 0;
-		/** TODO */
+		/** TO-DO */
 		public static final int BLEND_OVER = 1;
 
 		private final Rectangle bounds;
@@ -620,7 +651,7 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		/**
-		 * TODO
+		 * TO-DO
 		 */
 		public Rectangle getBounds()
 		{
@@ -628,7 +659,7 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		/**
-		 * TODO
+		 * TO-DO
 		 */
 		public float getDelay()
 		{
@@ -636,7 +667,7 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		/**
-		 * TODO
+		 * TO-DO
 		 */
 		public int getDispose()
 		{
@@ -644,7 +675,7 @@ package com.android.mm3.wallpaper.animated;
 		}
 
 		/**
-		 * TODO
+		 * TO-DO
 		 */
 		public int getBlend()
 		{
@@ -658,17 +689,48 @@ package com.android.mm3.wallpaper.animated;
 		}
 	}
 	
-	class Rectangle 
-	extends RectF
+	public static class Rectangle
 	{
+
+		public int x;
+		public int y;
+		public int width;
+		public int height;
+
+		public Rectangle(int width, int height) {
+			this.x = 0;
+			this.y = 0;
+			this.width = width;
+			this.height = height;
+		}
+
+		public boolean contains(Rectangle bounds) {
+			Rect reg = new Rect(this.x, this.y, this.width, this.height);
+			Rect reg1 = new Rect(bounds.x, bounds.y, bounds.width, bounds.height);
+			return reg.contains(reg1);
+		}
+
+		public Dimension getSize() {
+			// TO-DO Auto-generated method stub
+			return new Dimension(this.width, this.height);
+		}
+
+		public Rectangle(int x, int y, int w, int h) {
+			this.x = x;
+			this.y = y;
+			this.width = w;
+			this.height = h;
+		}
+
+		public Rectangle(Rectangle sourceRegion) {
+			this.x = sourceRegion.x;
+			this.y = sourceRegion.y;
+			this.width = sourceRegion.width;
+			this.height = sourceRegion.height;
+		}
 		
 	}
 	
-	public class PngException
-	extends IOException
-	{
-		
-	}
 	
 	class FrameDataInputStream
 	extends InputStream
@@ -704,7 +766,7 @@ package com.android.mm3.wallpaper.animated;
 				in.close();
 			in = null;
 			if (it.hasNext()) {
-				// TODO: enable streaming
+				// TO-DO: enable streaming
 				FrameData data = (FrameData)it.next();
 				file.seek(data.getOffset());
 				byte[] bytes = new byte[data.getLength()];
@@ -1052,7 +1114,35 @@ package com.android.mm3.wallpaper.animated;
 		public static final int STEREO_MODE_DIVERGING = 1;
 	}
 	
-	
+    static class Integers
+    {
+        public static Integer valueOf(int i)
+        {
+            switch (i) {
+            case 0: return INT_0;
+            case 1: return INT_1;
+            case 2: return INT_2;
+            case 3: return INT_3;
+            case 4: return INT_4;
+            case 5: return INT_5;
+            case 6: return INT_6;
+            case 7: return INT_7;
+            case 8: return INT_8;
+            default:
+                return new Integer(i);
+            }
+        }
+
+        private static final Integer INT_0 = new Integer(0);
+        private static final Integer INT_1 = new Integer(1);
+        private static final Integer INT_2 = new Integer(2);
+        private static final Integer INT_3 = new Integer(3);
+        private static final Integer INT_4 = new Integer(4);
+        private static final Integer INT_5 = new Integer(5);
+        private static final Integer INT_6 = new Integer(6);
+        private static final Integer INT_7 = new Integer(7);
+        private static final Integer INT_8 = new Integer(8);
+    }	
 	static class RegisteredChunks
 {
     private static final TimeZone TIME_ZONE = TimeZone.getTimeZone("UTC");
@@ -1102,12 +1192,12 @@ package com.android.mm3.wallpaper.animated;
         int width = in.readInt();
         int height = in.readInt();
         if (width <= 0 || height <= 0)
-            throw new PngException("Bad image size: " + width + "x" + height, true);
+            throw new IOException("Bad image size: " + width + "x" + height);
 
         byte bitDepth = in.readByte();
         switch (bitDepth) {
         case 1: case 2: case 4: case 8: case 16: break;
-        default: throw new PngException("Bad bit depth: " + bitDepth, true);
+        default: throw new IOException("Bad bit depth: " + bitDepth);
         }
 
         byte[] sbits = null;
@@ -1118,24 +1208,24 @@ package com.android.mm3.wallpaper.animated;
             break;
         case PngConstants.COLOR_TYPE_PALETTE: 
             if (bitDepth == 16)
-                throw new PngException("Bad bit depth for color type " + colorType + ": " + bitDepth, true);
+                throw new IOException("Bad bit depth for color type " + colorType + ": " + bitDepth);
             break;
         case PngConstants.COLOR_TYPE_GRAY_ALPHA: 
         case PngConstants.COLOR_TYPE_RGB_ALPHA: 
             if (bitDepth <= 4)
-                throw new PngException("Bad bit depth for color type " + colorType + ": " + bitDepth, true);
+                throw new IOException("Bad bit depth for color type " + colorType + ": " + bitDepth);
             break;
         default:
-            throw new PngException("Bad color type: " + colorType, true);
+            throw new IOException("Bad color type: " + colorType);
         }
 
         int compression = in.readUnsignedByte();
         if (compression != PngConstants.COMPRESSION_BASE) 
-            throw new PngException("Unrecognized compression method: " + compression, true);
+            throw new IOException("Unrecognized compression method: " + compression);
 
         int filter = in.readUnsignedByte();
         if (filter != PngConstants.FILTER_BASE)
-            throw new PngException("Unrecognized filter method: " + filter, true);
+            throw new IOException("Unrecognized filter method: " + filter);
 
         int interlace = in.readUnsignedByte();
         switch (interlace) {
@@ -1143,7 +1233,7 @@ package com.android.mm3.wallpaper.animated;
         case PngConstants.INTERLACE_ADAM7:
             break;
         default:
-            throw new PngException("Unrecognized interlace method: " + interlace, true);
+            throw new IOException("Unrecognized interlace method: " + interlace);
         }
 
         props.put(PngConstants.WIDTH, Integers.valueOf(width));
@@ -1168,18 +1258,18 @@ package com.android.mm3.wallpaper.animated;
         switch (png.getColorType()) {
         case PngConstants.COLOR_TYPE_PALETTE:
             if (size > (2 << (png.getBitDepth() - 1)))
-                throw new PngException("Too many palette entries: " + size, true);
+                throw new IOException("Too many palette entries: " + size);
             break;
         case PngConstants.COLOR_TYPE_GRAY:
         case PngConstants.COLOR_TYPE_GRAY_ALPHA:
-            throw new PngException("PLTE chunk found in grayscale image", false);
+            throw new IOException("PLTE chunk found in grayscale image");
         }
         byte[] palette = new byte[length];
         in.readFully(palette);
         props.put(PngConstants.PALETTE, palette);
     }
 
-    private static void read_tRNS(DataInput in, int length, Map props, PngImage png)
+    private static void read_tRNS(DataInput in, int length, Map props, ApngDecoder png)
     throws IOException
     {
         switch (png.getColorType()) {
@@ -1198,17 +1288,17 @@ package com.android.mm3.wallpaper.animated;
         case PngConstants.COLOR_TYPE_PALETTE:
             int paletteSize = ((byte[])png.getProperty(PngConstants.PALETTE, byte[].class, true)).length / 3;
             if (length > paletteSize)
-                throw new PngException("Too many transparency palette entries (" + length + " > " + paletteSize + ")", true);
+                throw new IOException("Too many transparency palette entries (" + length + " > " + paletteSize + ")");
             byte[] trans = new byte[length];
             in.readFully(trans);
             props.put(PngConstants.PALETTE_ALPHA, trans);
             break;
         default:
-            throw new PngException("tRNS prohibited for color type " + png.getColorType(), true);
+            throw new IOException("tRNS prohibited for color type " + png.getColorType());
         }
     }
 
-    private static void read_bKGD(DataInput in, int length, Map props, PngImage png)
+    private static void read_bKGD(DataInput in, int length, Map props, ApngDecoder png)
     throws IOException
     {
         int[] background;
@@ -1251,15 +1341,15 @@ package com.android.mm3.wallpaper.animated;
         checkLength(PngConstants.gAMA, length, 4);
         int gamma = in.readInt();
         if (gamma == 0)
-            throw new PngException("Meaningless zero gAMA chunk value", false);
+            throw new IOException("Meaningless zero gAMA chunk value");
         if (!props.containsKey(PngConstants.RENDERING_INTENT))
             props.put(PngConstants.GAMMA, new Float(gamma / 100000f));
     }
 
-    private static void read_hIST(DataInput in, int length, Map props, PngImage png)
+    private static void read_hIST(DataInput in, int length, Map props, ApngDecoder png)
     throws IOException
     {
-        // TODO: ensure it is divisible by three
+        // TO-DO: ensure it is divisible by three
         int paletteSize = ((byte[])png.getProperty(PngConstants.PALETTE, byte[].class, true)).length / 3;
         checkLength(PngConstants.hIST, length, paletteSize * 2);
         int[] array = new int[paletteSize];
@@ -1285,13 +1375,13 @@ package com.android.mm3.wallpaper.animated;
         int pixelsPerUnitY = in.readInt();
         int unit = in.readUnsignedByte();
         if (unit != PngConstants.UNIT_UNKNOWN && unit != PngConstants.UNIT_METER)
-            throw new PngException("Illegal pHYs chunk unit specifier: " + unit, false);
+            throw new IOException("Illegal pHYs chunk unit specifier: " + unit);
         props.put(PngConstants.PIXELS_PER_UNIT_X, Integers.valueOf(pixelsPerUnitX));
         props.put(PngConstants.PIXELS_PER_UNIT_Y, Integers.valueOf(pixelsPerUnitY));
         props.put(PngConstants.UNIT, Integers.valueOf(unit));
     }
 
-    private static void read_sBIT(DataInput in, int length, Map props, PngImage png)
+    private static void read_sBIT(DataInput in, int length, Map props, ApngDecoder png)
     throws IOException
     {
         boolean paletted = png.getColorType() == PngConstants.COLOR_TYPE_PALETTE;
@@ -1302,7 +1392,7 @@ package com.android.mm3.wallpaper.animated;
         for (int i = 0; i < count; i++) {
             byte bits = in.readByte();
             if (bits <= 0 || bits > depth)
-                throw new PngException("Illegal sBIT sample depth", false);
+                throw new IOException("Illegal sBIT sample depth");
             array[i] = bits;
         }
         props.put(PngConstants.SIGNIFICANT_BITS, array);
@@ -1335,25 +1425,25 @@ package com.android.mm3.wallpaper.animated;
     }
 
     private static int check(int value, int min, int max, String field)
-    throws PngException
+    throws IOException
     {
         if (value < min || value > max)
-            throw new PngException("tIME " + field + " value " + value +
-                                   " is out of bounds (" + min + "-" + max + ")", false);
+            throw new IOException("tIME " + field + " value " + value +
+                                   " is out of bounds (" + min + "-" + max + ")");
         return value;
     }
 
-    private static void read_sPLT(DataInput in, int length, Map props, PngImage png)
+    private static void read_sPLT(DataInput in, int length, Map props, ApngDecoder png)
     throws IOException
     {
         String name = readKeyword(in, length);
         int sampleDepth = in.readByte();
         if (sampleDepth != 8 && sampleDepth != 16)
-            throw new PngException("Sample depth must be 8 or 16", false);
+            throw new IOException("Sample depth must be 8 or 16");
         
         length -= (name.length() + 2);
         if ((length % ((sampleDepth == 8) ? 6 : 10)) != 0)
-            throw new PngException("Incorrect sPLT data length for given sample depth", false);
+            throw new IOException("Incorrect sPLT data length for given sample depth");
         byte[] bytes = new byte[length];
         in.readFully(bytes);
 
@@ -1362,12 +1452,12 @@ package com.android.mm3.wallpaper.animated;
             props.put(PngConstants.SUGGESTED_PALETTES, palettes = new ArrayList());
         for (Iterator it = palettes.iterator(); it.hasNext();) {
             if (name.equals(((SuggestedPalette)it.next()).getName()))
-                throw new PngException("Duplicate suggested palette name " + name, false);
+                throw new IOException("Duplicate suggested palette name " + name);
         }
-        palettes.add(new SuggestedPaletteImpl(name, sampleDepth, bytes));
+        palettes.add(new SuggestedPalette(name, sampleDepth, bytes));
     }
 
-    private static void readText(int type, DataInput in, int length, Map props, PngImage png)
+    private static void readText(int type, DataInput in, int length, Map props, ApngDecoder png)
     throws IOException
     {
         byte[] bytes = new byte[length];
@@ -1394,14 +1484,14 @@ package com.android.mm3.wallpaper.animated;
                 compressed = true;
                 readMethod = false;
                 if (method != 0)
-                    throw new PngException("Unrecognized " + PngConstants.getChunkName(type) + " compression method: " + method, false);
+                    throw new IOException("Unrecognized " + PngConstants.getChunkName(type) + " compression method: " + method);
             } else if (flag != 0) {
-                throw new PngException("Illegal " + PngConstants.getChunkName(type) + " compression flag: " + flag, false);
+                throw new IOException("Illegal " + PngConstants.getChunkName(type) + " compression flag: " + flag);
             }
             language = readString(data, data.available(), US_ASCII);
-            // TODO: split language on hyphens, check that each component is 1-8 characters
+            // TO-DO: split language on hyphens, check that each component is 1-8 characters
             translated = readString(data, data.available(), UTF_8);
-            // TODO: check for line breaks?
+            // TO-DO: check for line breaks?
         }
 
         String text;
@@ -1411,11 +1501,11 @@ package com.android.mm3.wallpaper.animated;
             text = new String(bytes, bytes.length - data.available(), data.available(), enc);
         }
         if (text.indexOf('\0') >= 0)
-            throw new PngException("Text value contains null", false);
+            throw new IOException("Text value contains null");
         List chunks = (List)png.getProperty(PngConstants.TEXT_CHUNKS, List.class, false);
         if (chunks == null)
             props.put(PngConstants.TEXT_CHUNKS, chunks = new ArrayList());
-        chunks.add(new TextChunkImpl(keyword, text, language, translated, type));
+        chunks.add(new TextChunk(keyword, text, language, translated, type));
     }
 
     private static void read_gIFg(DataInput in, int length, Map props)
@@ -1439,7 +1529,7 @@ package com.android.mm3.wallpaper.animated;
         int unit = in.readByte();
         if (unit != PngConstants.POSITION_UNIT_PIXEL &&
             unit != PngConstants.POSITION_UNIT_MICROMETER)
-            throw new PngException("Illegal oFFs chunk unit specifier: " + unit, false);
+            throw new IOException("Illegal oFFs chunk unit specifier: " + unit);
         props.put(PngConstants.POSITION_X, Integers.valueOf(x));
         props.put(PngConstants.POSITION_Y, Integers.valueOf(y));
         props.put(PngConstants.POSITION_UNIT, Integers.valueOf(unit));
@@ -1454,11 +1544,11 @@ package com.android.mm3.wallpaper.animated;
         
         int unit = data.readByte();
         if (unit != PngConstants.SCALE_UNIT_METER && unit != PngConstants.SCALE_UNIT_RADIAN)
-            throw new PngException("Illegal sCAL chunk unit specifier: " + unit, false);
+            throw new IOException("Illegal sCAL chunk unit specifier: " + unit);
         double width = readFloatingPoint(data, data.available());
         double height = readFloatingPoint(data, data.available());
         if (width <= 0 || height <= 0)
-            throw new PngException("sCAL measurements must be >= 0", false);
+            throw new IOException("sCAL measurements must be >= 0");
         props.put(PngConstants.SCALE_UNIT, Integers.valueOf(unit));
         props.put(PngConstants.PIXEL_WIDTH, new Double(width));
         props.put(PngConstants.PIXEL_HEIGHT, new Double(height));
@@ -1475,15 +1565,15 @@ package com.android.mm3.wallpaper.animated;
             props.put(PngConstants.STEREO_MODE, Integers.valueOf(mode));
             break;
         default:
-            throw new PngException("Unknown sTER mode: " + mode, false);
+            throw new IOException("Unknown sTER mode: " + mode);
         }
     }
 
     public static void checkLength(int chunk, int length, int correct)
-    throws PngException
+    throws IOException
     {
         if (length != correct)
-            throw new PngException("Bad " + PngConstants.getChunkName(chunk) + " chunk length: " + length + " (expected " + correct + ")", true);
+            throw new IOException("Bad " + PngConstants.getChunkName(chunk) + " chunk length: " + length + " (expected " + correct + ")");
     }
 
     private static byte[] readCompressed(DataInput in, int length, boolean readMethod)
@@ -1492,7 +1582,7 @@ package com.android.mm3.wallpaper.animated;
         if (readMethod) {
             int method = in.readByte();
             if (method != 0)
-                throw new PngException("Unrecognized compression method: " + method, false);
+                throw new IOException("Unrecognized compression method: " + method);
             length--;
         }
         byte[] data = new byte[length];
@@ -1507,7 +1597,7 @@ package com.android.mm3.wallpaper.animated;
                 out.write(tmp, 0, inf.inflate(tmp));
             }
         } catch (DataFormatException e) {
-            throw new PngException("Error reading compressed data", e, false);
+            throw new IOException("Error reading compressed data", e);
         }
         return out.toByteArray();
     }
@@ -1523,11 +1613,11 @@ package com.android.mm3.wallpaper.animated;
     {
         String keyword = readString(in, limit, ISO_8859_1);
         if (keyword.length() == 0 || keyword.length() > 79)
-            throw new PngException("Invalid keyword length: " + keyword.length(), false);
+            throw new IOException("Invalid keyword length: " + keyword.length());
         return keyword;
     }
 
-    // TODO: performance
+    // TO-DO: performance
     private static byte[] readToNull(DataInput in, int limit)
     throws IOException
     {
@@ -1552,6 +1642,1219 @@ package com.android.mm3.wallpaper.animated;
         return d;
     }
 }
+
+	public static class TextChunk
+	{
+	    private final String keyword;
+	    private final String text;
+	    private final String language;
+	    private final String translated;
+	    private final int type;
+	    
+	    public TextChunk(String keyword, String text, String language, String translated, int type)
+	    {
+	        this.keyword = keyword;
+	        this.text = text;
+	        this.language = language;
+	        this.translated = translated;
+	        this.type = type;
+	    }
+	    
+	    public String getKeyword(){return keyword;}
+	    public String getTranslatedKeyword(){return translated;}
+	    public String getLanguage(){return language;}
+	    public String getText(){return text;}
+	    public int getType(){return type;}
+	}
+	
+	public static class SuggestedPalette
+	{
+	    private final String name;
+	    private final int sampleDepth;
+	    private final byte[] bytes;
+	    private final int entrySize;
+	    private final int sampleCount;
+	        
+	    public SuggestedPalette(String name, int sampleDepth, byte[] bytes)
+	    {
+	        this.name = name;
+	        this.sampleDepth = sampleDepth;
+	        this.bytes = bytes;
+	        entrySize = (sampleDepth == 8) ? 6 : 10;
+	        sampleCount = bytes.length / entrySize;
+	    }
+
+	    public String getName()
+	    {
+	        return name;
+	    }
+	        
+	    public int getSampleCount()
+	    {
+	        return sampleCount;
+	    }
+	        
+	    public int getSampleDepth()
+	    {
+	        return sampleDepth;
+	    }
+
+	    public void getSample(int index, short[] pixel)
+	    {
+	        int from = index * entrySize;
+	        if (sampleDepth == 8) {
+	            for (int j = 0; j < 4; j++) {
+	                int a = 0xFF & bytes[from++];
+	                pixel[j] = (short)a;
+	            }
+	        } else {
+	            for (int j = 0; j < 4; j++) {
+	                int a = 0xFF & bytes[from++];
+	                int b = 0xFF & bytes[from++];
+	                pixel[j] = (short)((a << 8) | b);
+	            }
+	        }
+	    }
+	        
+	    public int getFrequency(int index)
+	    {
+	        int from = (index + 1) * entrySize - 2;
+	        int a = 0xFF & bytes[from];
+	        int b = 0xFF & bytes[from + 1];
+	        return ((a << 8) | b);
+	    }
+	}
 	
 	
+	
+	public class StateMachine
+	{
+	    public static final int STATE_START = 0;
+	    public static final int STATE_SAW_IHDR = 1;
+	    public static final int STATE_SAW_IHDR_NO_PLTE = 2;
+	    public static final int STATE_SAW_PLTE = 3;
+	    public static final int STATE_IN_IDAT = 4;
+	    public static final int STATE_AFTER_IDAT = 5;
+	    public static final int STATE_END = 6;
+
+	    private ApngDecoder png;
+	    private int state = STATE_START;
+	    private int type;
+
+	    public StateMachine(ApngDecoder png)
+	    {
+	        this.png = png;
+	    }
+
+	    public int getState()
+	    {
+	        return state;
+	    }
+
+	    public int getType()
+	    {
+	        return type;
+	    }
+
+	    public void nextState(int type)
+	    throws IOException
+	    {
+	        state = nextState(png, state, this.type = type);
+	    }
+	        
+	    private int nextState(ApngDecoder png, int state, int type)
+	    throws IOException
+	    {
+	        for (int i = 0; i < 4; i++) {
+	            int c = 0xFF & (type >>> (8 * i));
+	            if (c < 65 || (c > 90 && c < 97) || c > 122)
+	                throw new IOException("Corrupted chunk type: 0x" + Integer.toHexString(type));
+	        }
+	        if (PngConstants.isPrivate(type) && !PngConstants.isAncillary(type))
+	            throw new IOException("Private critical chunk encountered: " + PngConstants.getChunkName(type));
+	        switch (state) {
+	        case STATE_START:
+	            if (type == PngConstants.IHDR)
+	                return STATE_SAW_IHDR;
+	            throw new IOException("IHDR chunk must be first chunk");
+	        case STATE_SAW_IHDR:
+	        case STATE_SAW_IHDR_NO_PLTE:
+	            switch (type) {
+	            case PngConstants.PLTE:
+	                return STATE_SAW_PLTE;
+	            case PngConstants.IDAT:
+	                errorIfPaletted(png);
+	                return STATE_IN_IDAT;
+	            case PngConstants.bKGD:
+	                return STATE_SAW_IHDR_NO_PLTE;
+	            case PngConstants.tRNS:
+	                errorIfPaletted(png);
+	                return STATE_SAW_IHDR_NO_PLTE;
+	            case PngConstants.hIST:
+	                throw new IOException("PLTE must precede hIST");
+	            }
+	            return state;
+	        case STATE_SAW_PLTE:
+	            switch (type) {
+	            case PngConstants.cHRM:
+	            case PngConstants.gAMA:
+	            case PngConstants.iCCP:
+	            case PngConstants.sBIT:
+	            case PngConstants.sRGB:
+	                throw new IOException(PngConstants.getChunkName(type) + " cannot appear after PLTE");
+	            case PngConstants.IDAT:
+	                return STATE_IN_IDAT;
+	            case PngConstants.IEND:
+	                throw new IOException("Required data chunk(s) not found");
+	            }
+	            return STATE_SAW_PLTE;
+	        default: // STATE_IN_IDAT, STATE_AFTER_IDAT
+	            switch (type) {
+	            case PngConstants.PLTE:
+	            case PngConstants.cHRM:
+	            case PngConstants.gAMA:
+	            case PngConstants.iCCP:
+	            case PngConstants.sBIT:
+	            case PngConstants.sRGB:
+	            case PngConstants.bKGD:
+	            case PngConstants.hIST:
+	            case PngConstants.tRNS:
+	            case PngConstants.pHYs:
+	            case PngConstants.sPLT:
+	            case PngConstants.oFFs:
+	            case PngConstants.pCAL:
+	            case PngConstants.sCAL:
+	            case PngConstants.sTER:
+	                throw new IOException(PngConstants.getChunkName(type) + " cannot appear after IDAT");
+	            case PngConstants.IEND:
+	                return STATE_END;
+	            case PngConstants.IDAT:
+	                if (state == STATE_IN_IDAT)
+	                    return STATE_IN_IDAT;
+	                throw new IOException("IDAT chunks must be consecutive");
+	            }
+	            return STATE_AFTER_IDAT;
+	        }
+	    }
+
+	    private void errorIfPaletted(ApngDecoder png)
+	    throws IOException
+	    {
+	        if (png.getColorType() == PngConstants.COLOR_TYPE_PALETTE)
+	            throw new IOException("Required PLTE chunk not found");
+	    }
+	}
+	class ImageDataInputStream
+	extends InputStream
+	{
+	    private final PngInputStream in;
+	    private final StateMachine machine;
+	    private final byte[] onebyte = new byte[1];
+	    private boolean done;
+
+	    public ImageDataInputStream(PngInputStream in, StateMachine machine)
+	    {
+	        this.in = in;
+	        this.machine = machine;
+	    }
+	    
+	    public int read()
+	    throws IOException
+	    {
+	        return (read(onebyte, 0, 1) == -1) ? -1 : 0xFF & onebyte[0];
+	    }
+
+	    public int read(byte[] b, int off, int len)
+	    throws IOException
+	    {
+	        if (done)
+	            return -1;
+	        try {
+	            int total = 0;
+	            while ((total != len) && !done) {
+	                while ((total != len) && in.getRemaining() > 0) {
+	                    int amt = Math.min(len - total, in.getRemaining());
+	                    in.readFully(b, off + total, amt);
+	                    total += amt;
+	                }
+	                if (in.getRemaining() <= 0) {
+	                    in.endChunk(machine.getType());
+	                    machine.nextState(in.startChunk());
+	                    done = machine.getType() != PngConstants.IDAT;
+	                }
+	            }
+	            return total;
+	        } catch (EOFException e) {
+	            done = true;
+	            return -1;
+	        }
+	    }
+	}
+	
+	final class PngInputStream
+	extends InputStream
+	implements DataInput
+	{
+	    private final CRC32 crc = new CRC32();
+	    private final InputStream in;
+	    private final DataInputStream data;
+	    private final byte[] tmp = new byte[0x1000];
+	    private long total;
+	    private int length;
+	    private int left;
+
+	    public PngInputStream(InputStream in)
+	    throws IOException
+	    {
+	        this.in = in;
+	        data = new DataInputStream(this);
+	        left = 8;
+	        long sig = readLong();
+	        if (sig != PngConstants.SIGNATURE) {
+	            throw new IOException("Improper signature, expected 0x" +
+	                                   Long.toHexString(PngConstants.SIGNATURE) + ", got 0x" +
+	                                   Long.toHexString(sig));
+	        }
+	        total += 8;
+	    }
+
+	    public int startChunk()
+	    throws IOException
+	    {
+	        left = 8; // length, type
+	        length = readInt();
+	        if (length < 0)
+	            throw new IOException("Bad chunk length: " + (0xFFFFFFFFL & length));
+	        crc.reset();
+	        int type = readInt();
+	        left = length;
+	        total += 8;
+	        return type;
+	    }
+	    
+	    public int endChunk(int type)
+	    throws IOException
+	    {
+	        if (getRemaining() != 0)
+	            throw new IOException(PngConstants.getChunkName(type) + " read " + (length - left) + " bytes, expected " + length);
+	        left = 4;
+	        int actual = (int)crc.getValue();
+	        int expect = readInt();
+	        if (actual != expect)
+	            throw new IOException("Bad CRC value for " + PngConstants.getChunkName(type) + " chunk");
+	        total += length + 4;
+	        return actual;
+	    }
+
+	    ////////// count/crc InputStream methods //////////
+
+	    public int read()
+	    throws IOException
+	    {
+	        if (left == 0)
+	            return -1;
+	        int result = in.read();
+	        if (result != -1) {
+	            crc.update(result);
+	            left--;
+	        }
+	        return result;
+	    }
+	    
+	    public int read(byte[] b, int off, int len)
+	    throws IOException
+	    {
+	        if (len == 0)
+	            return 0;
+	        if (left == 0)
+	            return -1;
+	        int result = in.read(b, off, Math.min(left, len));
+	        if (result != -1) {
+	            crc.update(b, off, result);
+	            left -= result;
+	        }
+	        return result;
+	    }
+
+	    public long skip(long n)
+	    throws IOException
+	    {
+	        int result = read(tmp, 0, (int)Math.min(tmp.length, n));
+	        return (result < 0) ? 0 : result;
+	    }
+
+	    public void close()
+	    {
+	        throw new UnsupportedOperationException("do not close me");
+	    }
+	    
+	    ////////// DataInput methods we implement directly //////////
+
+	    public boolean readBoolean()
+	    throws IOException
+	    {
+	        return readUnsignedByte() != 0;
+	    }
+
+	    public int readUnsignedByte()
+	    throws IOException
+	    {
+	        int a = read();
+	        if (a < 0)
+	            throw new EOFException();
+	        return a;
+	    }
+
+	    public byte readByte()
+	    throws IOException
+	    {
+	        return (byte)readUnsignedByte();
+	    }
+
+	    public int readUnsignedShort()
+	    throws IOException
+	    {
+	        int a = read();
+	        int b = read();
+	        if ((a | b) < 0)
+	            throw new EOFException();
+	        return (a << 8) + (b << 0);
+	    }
+
+	    public short readShort()
+	    throws IOException
+	    {
+	        return (short)readUnsignedShort();
+	    }
+
+	    public char readChar()
+	    throws IOException
+	    {
+	        return (char)readUnsignedShort();
+	    }
+
+	    public int readInt()
+	    throws IOException
+	    {
+	        int a = read();
+	        int b = read();
+	        int c = read();
+	        int d = read();
+	        if ((a | b | c | d) < 0)
+	            throw new EOFException();
+	        return ((a << 24) + (b << 16) + (c << 8) + (d << 0));
+	    }
+
+	    public long readLong()
+	    throws IOException
+	    {
+	        return ((0xFFFFFFFFL & readInt()) << 32) | (0xFFFFFFFFL & readInt());
+	    }
+
+	    public float readFloat()
+	    throws IOException
+	    {
+	        return Float.intBitsToFloat(readInt());
+	    }
+
+	    public double readDouble()
+	    throws IOException
+	    {
+	        return Double.longBitsToDouble(readLong());
+	    }
+	    
+	    ////////// DataInput methods we delegate //////////
+
+	    public void readFully(byte[] b)
+	    throws IOException
+	    {
+	        data.readFully(b, 0, b.length);
+	    }
+	    
+	    public void readFully(byte[] b, int off, int len)
+	    throws IOException
+	    {
+	        data.readFully(b, off, len);
+	    }
+
+	    public int skipBytes(int n)
+	    throws IOException
+	    {
+	        return data.skipBytes(n);
+	    }
+
+	    public String readLine()
+	    throws IOException
+	    {
+	        return data.readLine();
+	    }
+
+	    public String readUTF()
+	    throws IOException
+	    {
+	        return data.readUTF();
+	    }
+
+	    ////////// PNG-specific methods //////////
+
+	    /**
+	     * Returns the number of bytes of chunk data that the
+	     * {@link PngConstants#read} method implementation is required to read.
+	     * Use {@link #skipBytes} to skip the data.
+	     * @return the number of bytes in the chunk remaining to be read
+	     */
+	    public int getRemaining()
+	    {
+	        return left;
+	    }
+
+	    public long getOffset()
+	    {
+	        return total;
+	    }    
+	}
+	
+	
+	final public static class PngConfig
+	{
+	    /** Read the entire image */
+	    public static final int READ_ALL = 0;
+	    /** Read only the header chunk */
+	    public static final int READ_HEADER = 1;
+	    /** Read all the metadata up to the image data */
+	    public static final int READ_UNTIL_DATA = 2;
+	    /** Read the entire image, skipping over the image data */
+	    public static final int READ_EXCEPT_DATA = 3;
+	    /** Read the entire image, skipping over all non-critical chunks except tRNS and gAMA */
+	    public static final int READ_EXCEPT_METADATA = 4;
+
+	    final int readLimit;
+	    final float defaultGamma;
+	    final float displayExponent;
+	    final boolean warningsFatal;
+	    final boolean progressive;
+	    final boolean reduce16;
+	    final boolean gammaCorrect;
+	    final Rectangle sourceRegion;
+	    final int[] subsampling;
+	    final boolean convertIndexed;
+
+	    PngConfig(Builder builder)
+	    {
+	        this.readLimit = builder.readLimit;
+	        this.defaultGamma = builder.defaultGamma;
+	        this.displayExponent = builder.displayExponent;
+	        this.warningsFatal = builder.warningsFatal;
+	        this.progressive = builder.progressive;
+	        this.reduce16 = builder.reduce16;
+	        this.gammaCorrect = builder.gammaCorrect;
+	        this.sourceRegion = builder.sourceRegion;
+	        this.subsampling = builder.subsampling;
+	        this.convertIndexed = builder.convertIndexed;
+	        
+	        boolean subsampleOn = getSourceXSubsampling() != 1 || getSourceYSubsampling() != 1;
+	        if (progressive && (subsampleOn || getSourceRegion() != null))
+	            throw new IllegalStateException("Progressive rendering cannot be used with source regions or subsampling");
+	    }
+
+	    /**
+	     * Builder class used to construct {@link PngConfig PngConfig} instances.
+	     * Each "setter" method returns an reference to the instance to enable
+	     * chaining multiple calls.
+	     * Call {@link #build} to construct a new {@code PngConfig} instance
+	     * using the current {@code Builder} settings. Example:
+	     * <pre>PngConfig config = new PngConfig.Builder()
+	     *        .readLimit(PngConfig.READ_EXCEPT_METADATA)
+	     *        .warningsFatal(true)
+	     *        .build();</pre>
+	     */
+	    final public static class Builder
+	    {
+	        private static final int[] DEFAULT_SUBSAMPLING = { 1, 1, 0, 0 };
+
+	        int readLimit = READ_ALL;
+	        float defaultGamma = 0.45455f;
+	        float displayExponent = 2.2f;
+	        boolean warningsFatal;
+	        boolean progressive;
+	        boolean reduce16 = true;
+	        boolean gammaCorrect = true;
+	        Rectangle sourceRegion;
+	        int[] subsampling = DEFAULT_SUBSAMPLING;
+	        boolean convertIndexed;
+
+	        /**
+	         * Create a new builder using default values.
+	         */
+	        public Builder()
+	        {
+	        }
+
+	        /**
+	         * Create a builder using values from the given configuration.
+	         * @param cfg the configuration to copy
+	         */
+	        public Builder(PngConfig cfg)
+	        {
+	            this.readLimit = cfg.readLimit;
+	            this.defaultGamma = cfg.defaultGamma;
+	            this.displayExponent = cfg.displayExponent;
+	            this.warningsFatal = cfg.warningsFatal;
+	            this.progressive = cfg.progressive;
+	            this.reduce16 = cfg.reduce16;
+	            this.gammaCorrect = cfg.gammaCorrect;
+	            this.subsampling = cfg.subsampling;
+	        }
+
+	        public PngConfig build()
+	        {
+	            return new PngConfig(this);
+	        }
+	        
+	        public Builder reduce16(boolean reduce16)
+	        {
+	            this.reduce16 = reduce16;
+	            return this;
+	        }
+
+	        public Builder defaultGamma(float defaultGamma)
+	        {
+	            this.defaultGamma = defaultGamma;
+	            return this;
+	        }
+
+	        public Builder displayExponent(float displayExponent)
+	        {
+	            this.displayExponent = displayExponent;
+	            return this;
+	        }
+
+	        public Builder gammaCorrect(boolean gammaCorrect)
+	        {
+	            this.gammaCorrect = gammaCorrect;
+	            return this;
+	        }
+
+	        public Builder progressive(boolean progressive)
+	        {
+	            this.progressive = progressive;
+	            return this;
+	        }
+	        
+	        public Builder readLimit(int readLimit)
+	        {
+	            this.readLimit = readLimit;
+	            return this;
+	        }
+
+	        public Builder warningsFatal(boolean warningsFatal)
+	        {
+	            this.warningsFatal = warningsFatal;
+	            return this;
+	        }
+
+	        public Builder sourceRegion(Rectangle sourceRegion)
+	        {
+	            if (sourceRegion != null) {
+	                if (sourceRegion.x < 0 ||
+	                    sourceRegion.y < 0 ||
+	                    sourceRegion.width <= 0 ||
+	                    sourceRegion.height <= 0)
+	                    throw new IllegalArgumentException("invalid source region: " + sourceRegion);
+	                this.sourceRegion = new Rectangle(sourceRegion);
+	            } else {
+	                this.sourceRegion = null;
+	            }
+	            return this;
+	        }
+
+	        public Builder sourceSubsampling(int xsub, int ysub, int xoff, int yoff)
+	        {
+	            if (xsub <= 0 || ysub <= 0 ||
+	                xoff < 0 || xoff >= xsub ||
+	                yoff < 0 || yoff >= ysub)
+	                throw new IllegalArgumentException("invalid subsampling values");
+	            subsampling = new int[]{ xsub, ysub, xoff, yoff };
+	            return this;
+	        }
+
+	        public Builder convertIndexed(boolean convertIndexed)
+	        {
+	            this.convertIndexed = convertIndexed;
+	            return this;
+	        }
+	    }
+
+	    public boolean getConvertIndexed()
+	    {
+	        return convertIndexed;
+	    }
+
+	    public boolean getReduce16()
+	    {
+	        return reduce16;
+	    }
+
+	    public float getDefaultGamma()
+	    {
+	        return defaultGamma;
+	    }
+
+	    public boolean getGammaCorrect()
+	    {
+	        return gammaCorrect;
+	    }
+
+	    public boolean getProgressive()
+	    {
+	        return progressive;
+	    }
+
+	    public float getDisplayExponent()
+	    {
+	        return displayExponent;
+	    }
+	    
+	    public int getReadLimit()
+	    {
+	        return readLimit;
+	    }
+
+	    public boolean getWarningsFatal()
+	    {
+	        return warningsFatal;
+	    }
+
+	    public Rectangle getSourceRegion()
+	    {
+	        return (sourceRegion != null) ? new Rectangle(sourceRegion) : null;
+	    }
+
+	    public int getSourceXSubsampling()
+	    {
+	        return subsampling[0];
+	    }
+
+	    public int getSourceYSubsampling()
+	    {
+	        return subsampling[1];
+	    }
+
+	    public int getSubsamplingXOffset()
+	    {
+	        return subsampling[2];
+	    }
+
+	    public int getSubsamplingYOffset()
+	    {
+	        return subsampling[3];
+	    }
+	}
+	/*	
+	
+	public static class ImageFactory
+	{
+	    private static short[] GAMMA_TABLE_45455 =
+	    		ApngDecoder.createGammaTable(0.45455f, 2.2f, false);
+	    private static short[] GAMMA_TABLE_100000 =
+	    		ApngDecoder.createGammaTable(1f, 2.2f, false);
+
+	    public static Bitmap createImage(ApngDecoder png, InputStream in)
+	    throws IOException
+	    {
+	        return createImage(png, in, new Dimension(png.getWidth(), png.getHeight()));
+	    }
+
+	    // width and height are overridable for APNG
+	    public static Bitmap createImage(ApngDecoder png, InputStream in, Dimension size)
+	    throws IOException
+	    {
+	        PngConfig config = png.getConfig();
+
+	        int width     = size.width;
+	        int height    = size.height;
+	        int bitDepth  = png.getBitDepth();
+	        int samples   = png.getSamples();
+	        boolean interlaced = png.isInterlaced();
+
+	        boolean indexed = isIndexed(png);
+	        boolean convertIndexed = indexed && config.getConvertIndexed();
+	        short[] gammaTable = config.getGammaCorrect() ? getGammaTable(png) : null;
+	        ColorModel dstColorModel = createColorModel(png, gammaTable, convertIndexed);
+
+	        int dstWidth = width;
+	        int dstHeight = height;
+	        Rectangle sourceRegion = config.getSourceRegion();
+	        if (sourceRegion != null) {
+	            if (!new Rectangle(dstWidth, dstHeight).contains(sourceRegion))
+	                throw new IllegalStateException("Source region " + sourceRegion + " falls outside of " +
+	                                                width + "x" + height + " image");
+	            dstWidth = sourceRegion.width;
+	            dstHeight = sourceRegion.height;
+	        }
+
+	        Destination dst;
+	        int xsub = config.getSourceXSubsampling();
+	        int ysub = config.getSourceYSubsampling();
+	        if (xsub != 1 || ysub != 1) {
+	            int xoff = config.getSubsamplingXOffset();
+	            int yoff = config.getSubsamplingYOffset();
+	            int subw = calcSubsamplingSize(dstWidth, xsub, xoff, 'X');
+	            int subh = calcSubsamplingSize(dstHeight, ysub, yoff, 'Y');
+	            WritableRaster raster = dstColorModel.createCompatibleWritableRaster(subw, subh);
+	            dst = new SubsamplingDestination(raster, width, xsub, ysub, xoff, yoff);
+	        } else {
+	            dst = new RasterDestination(dstColorModel.createCompatibleWritableRaster(dstWidth, dstHeight), width);
+	        }
+	        if (sourceRegion != null)
+	            dst = new SourceRegionDestination(dst, sourceRegion);
+
+
+	        // Destination dst = createDestination(config, dstColorModel, size, interlaced);
+	        BufferedImage image = new BufferedImage(dstColorModel, dst.getRaster(), false, null);
+
+	        PixelProcessor pp = null;
+	        if (!indexed) {
+	            int[] trans = (int[])png.getProperty(PngConstants.TRANSPARENCY, int[].class, false);
+	            int shift = (bitDepth == 16 && config.getReduce16()) ? 8 : 0;
+	            if (shift != 0 || trans != null || gammaTable != null) {
+	                if (gammaTable == null)
+	                    gammaTable = getIdentityTable(bitDepth - shift);
+	                if (trans != null) {
+	                    pp = new TransGammaPixelProcessor(dst, gammaTable, trans, shift);
+	                } else {
+	                    pp = new GammaPixelProcessor(dst, gammaTable, shift);
+	                }
+	            }
+	        }
+	        if (convertIndexed) {
+	            IndexColorModel srcColorModel = (IndexColorModel)createColorModel(png, gammaTable, false);
+	            dst = new ConvertIndexedDestination(dst, width, srcColorModel, (ComponentColorModel)dstColorModel);
+	        }
+
+	        if (pp == null)
+	            pp = new BasicPixelProcessor(dst, samples);
+	        if (config.getProgressive() && interlaced && !convertIndexed)
+	            pp = new ProgressivePixelProcessor(dst, pp, width, height);
+	        pp = new ProgressUpdater(png, image, pp);
+
+	        InflaterInputStream inflate = new InflaterInputStream(in, new Inflater(), 0x1000);
+	        Defilterer d = new Defilterer(inflate, bitDepth, samples, width, pp);
+	        
+	        // TO-DO: if not progressive, initialize to fully transparent?
+	        boolean complete;
+	        if (interlaced) {
+	            complete =
+	                d.defilter(0, 0, 8, 8, (width + 7) / 8, (height + 7) / 8) &&
+	                png.handlePass(image, 0) &&
+	                d.defilter(4, 0, 8, 8, (width + 3) / 8, (height + 7) / 8) &&
+	                png.handlePass(image, 1) &&
+	                d.defilter(0, 4, 4, 8, (width + 3) / 4, (height + 3) / 8) &&
+	                png.handlePass(image, 2) &&
+	                d.defilter(2, 0, 4, 4, (width + 1) / 4, (height + 3) / 4) &&
+	                png.handlePass(image, 3) && 
+	                d.defilter(0, 2, 2, 4, (width + 1) / 2, (height + 1) / 4) &&
+	                png.handlePass(image, 4) &&
+	                d.defilter(1, 0, 2, 2, width / 2, (height + 1) / 2) &&
+	                png.handlePass(image, 5) &&
+	                d.defilter(0, 1, 1, 2, width, height / 2) &&
+	                png.handlePass(image, 6);
+	        } else {
+	            complete =
+	                d.defilter(0, 0, 1, 1, width, height) &&
+	                png.handlePass(image, 0);
+	        }
+	        // TO-DO: handle complete?
+	        dst.done();
+	        return image;
+	    }
+
+	    private static short[] getGammaTable(PngImage png)
+	    {
+	        PngConfig config = png.getConfig();
+	        if ((png.getBitDepth() != 16 || config.getReduce16()) &&
+	            config.getDisplayExponent() == 2.2f) {
+	            float gamma = png.getGamma();
+	            if (gamma == 0.45455f)
+	                return GAMMA_TABLE_45455;
+	            if (gamma == 1f)
+	                return GAMMA_TABLE_100000;
+	        }
+	        return png.getGammaTable();
+	    }
+
+	    private static int calcSubsamplingSize(int len, int sub, int off, char desc)
+	    {
+	        int size = (len - off + sub - 1) / sub;
+	        if (size == 0)
+	            throw new IllegalStateException("Source " + desc + " subsampling " + sub + ", offset " + off +
+	                                            " is invalid for image dimension " + len);
+	        return size;
+	    }
+
+	    private static boolean isIndexed(ApngDecoder png)
+	    {
+	        int colorType = png.getColorType();
+	        return colorType == PngConstants.COLOR_TYPE_PALETTE ||
+	            (colorType == PngConstants.COLOR_TYPE_GRAY && png.getBitDepth() < 16);
+	    }
+
+	    private static ColorModel createColorModel(ApngDecoder png, short[] gammaTable, boolean convertIndexed)
+	    throws IOException
+	    {
+	        Map props = png.getProperties();
+	        int colorType = png.getColorType();
+	        int bitDepth = png.getBitDepth();
+	        int outputDepth = (bitDepth == 16 && png.getConfig().getReduce16()) ? 8 : bitDepth;
+
+	        if (isIndexed(png) && !convertIndexed) {
+	            byte[] r, g, b;
+	            if (colorType == PngConstants.COLOR_TYPE_PALETTE) {
+	                byte[] palette = (byte[])png.getProperty(PngConstants.PALETTE, byte[].class, true);
+	                int paletteSize = palette.length / 3;
+	                r = new byte[paletteSize];
+	                g = new byte[paletteSize];
+	                b = new byte[paletteSize];
+	                for (int i = 0, p = 0; i < paletteSize; i++) {
+	                    r[i] = palette[p++];
+	                    g[i] = palette[p++];
+	                    b[i] = palette[p++];
+	                }
+	                applyGamma(r, gammaTable);
+	                applyGamma(g, gammaTable);
+	                applyGamma(b, gammaTable);
+	            } else {
+	                int paletteSize = 1 << bitDepth;
+	                r = g = b = new byte[paletteSize];
+	                for (int i = 0; i < paletteSize; i++) {
+	                    r[i] = (byte)(i * 255 / (paletteSize - 1));
+	                }
+	                applyGamma(r, gammaTable);
+	            }
+	            if (props.containsKey(PngConstants.PALETTE_ALPHA)) {
+	                byte[] trans = (byte[])png.getProperty(PngConstants.PALETTE_ALPHA, byte[].class, true);
+	                byte[] a = new byte[r.length];
+	                Arrays.fill(a, trans.length, r.length, (byte)0xFF);
+	                System.arraycopy(trans, 0, a, 0, trans.length);
+	                return new IndexColorModel(outputDepth, r.length, r, g, b, a);
+	            } else {
+	                int trans = -1;
+	                if (props.containsKey(PngConstants.TRANSPARENCY))
+	                    trans = ((int[])png.getProperty(PngConstants.TRANSPARENCY, int[].class, true))[0];
+	                return new IndexColorModel(outputDepth, r.length, r, g, b, trans);
+	            }
+	        } else {
+	            int dataType = (outputDepth == 16) ?
+	                DataBuffer.TYPE_USHORT : DataBuffer.TYPE_BYTE;
+	            int colorSpace =
+	                (colorType == PngConstants.COLOR_TYPE_GRAY ||
+	                 colorType == PngConstants.COLOR_TYPE_GRAY_ALPHA) ?
+	                ColorSpace.CS_GRAY :
+	                ColorSpace.CS_sRGB;
+	            int transparency = png.getTransparency();
+	            // TO-DO: cache/enumerate color models?
+	            return new ComponentColorModel(ColorSpace.getInstance(colorSpace),
+	                                           null,
+	                                           transparency != ApngDecoder.OPAQUE,
+	                                           false,
+	                                           transparency,
+	                                           dataType);
+	        }
+	    }
+
+	     private static void applyGamma(byte[] palette, short[] gammaTable)
+	     {
+	         if (gammaTable != null) {
+	             for (int i = 0; i < palette.length; i++)
+	                 palette[i] = (byte)gammaTable[0xFF & palette[i]];
+	         }
+	     }
+	    
+	    private static short[] getIdentityTable(int bitDepth)
+	    {
+	        // TO-DO: cache identity tables?
+	        int size = 1 << bitDepth;
+	        short[] table = new short[size];
+	        for (int i = 0; i < size; i++)
+	            table[i] = (short)i;
+	        return table;
+	    }
+	}
+
+	abstract class Destination
+	{
+	    abstract public void setPixels(int x, int y, int w, int[] pixels); // TO-DO: change to setRow(int y, int w, int[] pixels)
+	    abstract public void setPixel(int x, int y, int[] pixel);
+	    abstract public void getPixel(int x, int y, int[] pixel); // used only by ProgressivePixelProcessor
+	    abstract public WritableRaster getRaster();
+	    abstract public int getSourceWidth();
+	    abstract public void done();
+	}
+	
+	abstract class PixelProcessor
+	{
+	    abstract public boolean process(int[] row, int xOffset, int xStep, int yStep, int y, int width);
+	}
+	
+	 public class BasicPixelProcessor
+	extends PixelProcessor
+	{
+	    protected final Destination dst;
+	    protected final int samples;
+	    
+	    public BasicPixelProcessor(Destination dst, int samples)
+	    {
+	        this.dst = dst;
+	        this.samples = samples;
+	    }
+	    
+	    public boolean process(int[] row, int xOffset, int xStep, int yStep, int y, int width)
+	    {
+	        if (xStep == 1) {
+	            dst.setPixels(xOffset, y, width, row);
+	        } else {
+	            int dstX = xOffset;
+	            for (int index = 0, total = samples * width; index < total; index += samples) {
+	                for (int i = 0; i < samples; i++)
+	                    row[i] = row[index + i];
+	                dst.setPixel(dstX, y, row);
+	                dstX += xStep;
+	            }
+	        }
+	        return true;
+	    }
+	}
+	
+	 public static class Defilterer
+	{
+	    private final InputStream in;
+	    private final int width;
+	    private final int bitDepth;
+	    private final int samples;
+	    private final PixelProcessor pp;
+	    private final int bpp;
+	    private final int[] row;
+
+	    public Defilterer(InputStream in, int bitDepth, int samples, int width, PixelProcessor pp)
+	    {
+	        this.in = in;
+	        this.bitDepth = bitDepth;
+	        this.samples = samples;
+	        this.width = width;
+	        this.pp = pp;
+	        bpp = Math.max(1, (bitDepth * samples) >> 3);
+	        row = new int[samples * width];
+	    }
+
+	    public boolean defilter(int xOffset, int yOffset,
+	                            int xStep, int yStep,
+	                            int passWidth, int passHeight)
+	    throws IOException
+	    {
+	        if (passWidth == 0 || passHeight == 0)
+	            return true;
+
+	        int bytesPerRow = (bitDepth * samples * passWidth + 7) / 8;
+	        boolean isShort = bitDepth == 16;
+	        WritableRaster passRow = createInputRaster(bitDepth, samples, width);
+	        DataBuffer dbuf = passRow.getDataBuffer();
+	        byte[] byteData = isShort ? null : ((DataBufferByte)dbuf).getData();
+	        short[] shortData = isShort ? ((DataBufferUShort)dbuf).getData() : null;
+	        
+	        int rowSize = bytesPerRow + bpp;
+	        byte[] prev = new byte[rowSize];
+	        byte[] cur = new byte[rowSize];
+
+	        for (int srcY = 0, dstY = yOffset; srcY < passHeight; srcY++, dstY += yStep) {
+	            int filterType = in.read();
+	            if (filterType == -1)
+	                throw new EOFException("Unexpected end of image data");
+	            readFully(in, cur, bpp, bytesPerRow);
+	            defilter(cur, prev, bpp, filterType);
+	            if (isShort) {
+	                for (int c = 0, i = bpp; i < rowSize; c++, i += 2)
+	                    shortData[c] = (short)((cur[i] << 8) | (0xFF & cur[i + 1]));
+	            } else {
+	                System.arraycopy(cur, bpp, byteData, 0, bytesPerRow);
+	            }
+	            passRow.getPixels(0, 0, passWidth, 1, row);
+	            if (!pp.process(row, xOffset, xStep, yStep, dstY, passWidth))
+	                return false;
+	            byte[] tmp = cur;
+	            cur = prev;
+	            prev = tmp;
+	        }
+	        return true;
+	    }
+
+	    private static void defilter(byte[] cur, byte[] prev, int bpp, int filterType)
+	    throws IOException
+	    {
+	        int rowSize = cur.length;
+	        int xc, xp;
+	        switch (filterType) {
+	        case 0: // None
+	            break;
+	        case 1: // Sub
+	            for (xc = bpp, xp = 0; xc < rowSize; xc++, xp++)
+	                cur[xc] = (byte)(cur[xc] + cur[xp]);
+	            break;
+	        case 2: // Up
+	            for (xc = bpp; xc < rowSize; xc++)
+	                cur[xc] = (byte)(cur[xc] + prev[xc]);
+	            break;
+	        case 3: // Average
+	            for (xc = bpp, xp = 0; xc < rowSize; xc++, xp++)
+	                cur[xc] = (byte)(cur[xc] + ((0xFF & cur[xp]) + (0xFF & prev[xc])) / 2);
+	            break;
+	        case 4: // Paeth
+	            for (xc = bpp, xp = 0; xc < rowSize; xc++, xp++) {
+	                byte L = cur[xp];
+	                byte u = prev[xc];
+	                byte nw = prev[xp];
+	                int a = 0xFF & L; //  inline byte->int
+	                int b = 0xFF & u; 
+	                int c = 0xFF & nw; 
+	                int p = a + b - c;
+	                int pa = p - a; if (pa < 0) pa = -pa; // inline Math.abs
+	                int pb = p - b; if (pb < 0) pb = -pb; 
+	                int pc = p - c; if (pc < 0) pc = -pc;
+	                int result;
+	                if (pa <= pb && pa <= pc) {
+	                    result = a;
+	                } else if (pb <= pc) {
+	                    result = b;
+	                } else {
+	                    result = c;
+	                }
+	                cur[xc] = (byte)(cur[xc] + result);
+	            }
+	            break;
+	        default:
+	            throw new IOException("Unrecognized filter type " + filterType);
+	        }
+	    }
+
+	    private static int[][] bandOffsets = {
+	        null,
+	        { 0 },
+	        { 0, 1 },
+	        { 0, 1, 2 },
+	        { 0, 1, 2, 3 },
+	    };
+
+	    private static WritableRaster createInputRaster(int bitDepth, int samples, int width)
+	    {
+	        int rowSize = (bitDepth * samples * width + 7) / 8;
+	        Point origin = new Point(0, 0);
+	        if ((bitDepth < 8) && (samples == 1)) {
+	            DataBuffer dbuf = new DataBufferByte(rowSize);
+	            return Raster.createPackedRaster(dbuf, width, 1, bitDepth, origin);
+	        } else if (bitDepth <= 8) {
+	            DataBuffer dbuf = new DataBufferByte(rowSize);
+	            return Raster.createInterleavedRaster(dbuf, width, 1, rowSize, samples,
+	                                                  bandOffsets[samples], origin);
+	        } else {
+	            DataBuffer dbuf = new DataBufferUShort(rowSize / 2);
+	            return Raster.createInterleavedRaster(dbuf, width, 1, rowSize / 2, samples,
+	                                                  bandOffsets[samples], origin);
+	        }
+	    }
+
+	    private static void readFully(InputStream in, byte[] b, int off, int len)
+	    throws IOException
+	    {
+	        int total = 0;
+	        while (total < len) {
+	            int result = in.read(b, off + total, len - total);
+	            if (result == -1)
+	                throw new EOFException("Unexpected end of image data");
+	            total += result;
+	        }
+	    }
+	}
+	
+	final public static class GammaPixelProcessor
+	extends BasicPixelProcessor
+	{
+	    final private short[] gammaTable;
+	    final private int shift;
+	    final private int samplesNoAlpha;
+	    final private boolean hasAlpha;
+	    final private boolean shiftAlpha;
+	    
+	    public GammaPixelProcessor(Destination dst, short[] gammaTable, int shift)
+	    {
+	        super(dst, dst.getRaster().getNumBands());
+	        this.gammaTable = gammaTable;
+	        this.shift = shift;
+	        hasAlpha = samples % 2 == 0;
+	        samplesNoAlpha = hasAlpha ? samples - 1 : samples; // don't change alpha channel
+	        shiftAlpha = hasAlpha && shift > 0;
+	    }
+	    
+	    public boolean process(int[] row, int xOffset, int xStep, int yStep, int y, int width)
+	    {
+	        int total = samples * width;
+	        for (int i = 0; i < samplesNoAlpha; i++)
+	            for (int index = i; index < total; index += samples)
+	                row[index] = 0xFFFF & gammaTable[row[index] >> shift];
+	        if (shiftAlpha)
+	            for (int index = samplesNoAlpha; index < total; index += samples)
+	                row[index] >>= shift;
+	        return super.process(row, xOffset, xStep, yStep, y, width);
+	    }
+	}
+	
+	final public static class TransGammaPixelProcessor
+	extends BasicPixelProcessor
+	{
+	    final private short[] gammaTable;
+	    final private int[] trans;
+	    final private int shift;
+	    final private int max;
+	    final private int samplesNoAlpha;
+	    final private int[] temp;
+	    
+	    public TransGammaPixelProcessor(Destination dst, short[] gammaTable, int[] trans, int shift)
+	    {
+	        super(dst, dst.getRaster().getNumBands());
+	        this.gammaTable = gammaTable;
+	        this.trans = trans;
+	        this.shift = shift;
+	        max = gammaTable.length - 1;
+	        samplesNoAlpha = samples - 1;
+	        temp = new int[samples * dst.getSourceWidth()];
+	    }
+	    
+	    public boolean process(int[] row, int xOffset, int xStep, int yStep, int y, int width)
+	    {
+	        int total = width * samplesNoAlpha;
+	        for (int i1 = 0, i2 = 0; i1 < total; i1 += samplesNoAlpha, i2 += samples) {
+	            boolean opaque = false;
+	            for (int j = 0; j < samplesNoAlpha; j++) {
+	                int sample = row[i1 + j];
+	                opaque = opaque || (sample != trans[j]);
+	                temp[i2 + j] = 0xFFFF & gammaTable[sample >> shift];
+	            }
+	            temp[i2 + samplesNoAlpha] = opaque ? max : 0;
+	        }
+	        return super.process(temp, xOffset, xStep, yStep, y, width);
+	    }
+	}
+	
+	class RasterDestination
+	extends Destination
+	{
+	    protected final WritableRaster raster;
+	    protected final int sourceWidth;
+	    public RasterDestination(WritableRaster raster, int sourceWidth) { this.raster = raster; this.sourceWidth = sourceWidth; }
+ 	    public void setPixels(int x, int y, int w, int[] pixels) { raster.setPixels(x, y, w, 1, pixels); }
+ 	    public void setPixel(int x, int y, int[] pixel) { raster.setPixel(x, y, pixel); }
+ 	    public void getPixel(int x, int y, int[] pixel) { raster.getPixel(x, y, pixel); }
+ 	    public WritableRaster getRaster() { return raster; }
+	    public void done() { }    
+	}
+	
+*/	
 }
