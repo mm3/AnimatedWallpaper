@@ -74,7 +74,25 @@ public class AnimatedWallpaperService extends WallpaperService {
 				else if(file.getName().endsWith(".svg"))
 				{
 					Log.w(TAG, "setup svg wallpaper");
-					animation = new SvgAnimation(fileName, Integer.valueOf(style));
+					int width = 0;
+					int height = 0;
+
+					final SurfaceHolder holder = getSurfaceHolder();
+					Canvas c = null;
+					try
+					{
+						if( (c = holder.lockCanvas()) != null )
+						{
+							width = c.getWidth();
+							height = c.getHeight();
+						}
+					}
+					finally
+					{
+						if( c != null )
+							holder.unlockCanvasAndPost( c );
+					}
+					animation = new SvgAnimation(fileName, Integer.valueOf(style), width, height);
 				}
 				else {
 					Log.w(TAG, "setup default animation");
@@ -131,8 +149,7 @@ public class AnimatedWallpaperService extends WallpaperService {
 		protected void drawFrame( final Canvas c, final float t )
 		{
 			c.save();
-			//Toast.makeText(getContext(),"drawFrame", 2000).show();
-			//Log.w(TAG, "drawFrame");
+			try {
 			animation.draw(c);
 			if( user_delay > 0 ) {
 				delay = user_delay;
@@ -140,6 +157,12 @@ public class AnimatedWallpaperService extends WallpaperService {
 			else
 			{
 			    delay = animation.getDelay();
+			}
+			} catch(Exception e) {
+				e.printStackTrace();
+				Toast.makeText(getContext(),"Exception in drawFrame: "+e, 1000).show();
+				Log.w(TAG, "Exception: "+e);
+				
 			}
 			c.restore();
 		}
@@ -150,20 +173,23 @@ public class AnimatedWallpaperService extends WallpaperService {
 			if( visible )
 				handler.postDelayed( runnable, delay );
 
-			final SurfaceHolder holder = getSurfaceHolder();
+			SurfaceHolder holder = null;
 			Canvas c = null;
 			try
 			{
+				holder = getSurfaceHolder();
 				if( (c = holder.lockCanvas()) != null )
 				{
 					final long now = SystemClock.elapsedRealtime();
 					drawFrame( c, (float)delay/(now-time) );
 					time = now;
 				}
+			} catch(Exception e) {
+				e.printStackTrace();
 			}
 			finally
 			{
-				if( c != null )
+				if( holder != null && c != null )
 					holder.unlockCanvasAndPost( c );
 			}
 		}

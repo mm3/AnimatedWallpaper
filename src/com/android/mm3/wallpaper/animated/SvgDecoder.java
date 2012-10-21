@@ -32,9 +32,10 @@ public class SvgDecoder extends Decoder {
         return doPath(pathString);
     }
 	
-	public int read(InputStream is) {
+	public int read(InputStream is, int width, int height) {
 		Log.w(TAG, "read input stream");
-		frames.add(parse(is, 0, 0, true));
+		Log.w(TAG, "");		
+		frames.add(parse(is, 0, 0, width, height, true));
 		frameCount = frames.size();
 		Log.w(TAG, "read end");
 		return frameCount;
@@ -56,45 +57,34 @@ public class SvgDecoder extends Decoder {
 	}
 	
 	
-    private SVG parse(InputStream in, Integer searchColor, Integer replaceColor, boolean whiteMode) throws SVGParseException {
+    private SVG parse(InputStream in, Integer searchColor, Integer replaceColor, int width, int height, boolean whiteMode) throws SVGParseException {
 		Log.w(TAG, "parse start");
         try {
-			int a = 0;
-            SAXParserFactory spf = SAXParserFactory.newInstance();
-			Log.w(TAG, "parse "+a++); //0
-            SAXParser sp = spf.newSAXParser();
-			Log.w(TAG, "parse "+a++); //1
-            XMLReader xr = sp.getXMLReader();
- 			Log.w(TAG, "parse "+a++); //2
-			final Picture picture = new Picture();
-			Log.w(TAG, "parse "+a++); //3
-            SVGHandler handler = new SVGHandler(picture);
-			Log.w(TAG, "parse "+a++); //4
-            InputSource is = new InputSource(in);
-			Log.w(TAG, "parse "+a++); //5
-            handler.setColorSwap(searchColor, replaceColor);
-			Log.w(TAG, "parse "+a++); //6
-            handler.setWhiteMode(whiteMode);
-			Log.w(TAG, "parse "+a++); //7
-            xr.setContentHandler(handler);
- 			Log.w(TAG, "parse "+a++); //8
-			xr.parse(is);
-			Log.w(TAG, "parse "+a++); //9
-            SVG result = new SVG(picture, handler.bounds);
-			Log.w(TAG, "parse "+a++); //10
-            // Skip bounds if it was an empty pic
+	        SAXParserFactory spf = SAXParserFactory.newInstance();
+	        SAXParser sp = spf.newSAXParser();
+	        XMLReader xr = sp.getXMLReader();
+ 			final Picture picture = new Picture();
+	        SVGHandler handler = new SVGHandler(picture, width, height);
+	        InputSource is = new InputSource(in);
+	        handler.setColorSwap(searchColor, replaceColor);
+	        handler.setWhiteMode(whiteMode);
+	        xr.setContentHandler(handler);
+ 			xr.parse(is);
+	        SVG result = new SVG(picture, handler.bounds);
+	        // Skip bounds if it was an empty pic
             if (!Float.isInfinite(handler.limits.top)) {
                 result.setLimits(handler.limits);
             }
 			Log.w(TAG, "parse end");
             return result;
         } catch (Exception e) {
-			Log.w(TAG, "exception - "+e);
+			e.printStackTrace();
+			Log.w(TAG, "exception - "+e.getMessage());
             throw new SVGParseException(e);
         }
     }
 
-    private static NumberParse parseNumbers(String s) {
+    private NumberParse parseNumbers(String s) {
         //Util.debug("Parsing numbers from: '" + s + "'");
         int n = s.length();
         int p = 0;
@@ -475,7 +465,7 @@ public class SvgDecoder extends Decoder {
         return null;
     }
 
-    private static String getStringAttr(String name, Attributes attributes) {
+    private String getStringAttr(String name, Attributes attributes) {
         int n = attributes.getLength();
         for (int i = 0; i < n; i++) {
             if (attributes.getLocalName(i).equals(name)) {
@@ -485,11 +475,11 @@ public class SvgDecoder extends Decoder {
         return null;
     }
 
-    private static Float getFloatAttr(String name, Attributes attributes) {
+    private Float getFloatAttr(String name, Attributes attributes) {
         return getFloatAttr(name, attributes, null);
     }
 
-    private static Float getFloatAttr(String name, Attributes attributes, Float defaultValue) {
+    private Float getFloatAttr(String name, Attributes attributes, Float defaultValue) {
         String v = getStringAttr(name, attributes);
         if (v == null) {
             return defaultValue;
@@ -497,12 +487,15 @@ public class SvgDecoder extends Decoder {
             if (v.endsWith("px")) {
                 v = v.substring(0, v.length() - 2);
             }
+			else if(v.endsWith("%")) {
+				v = v.substring(0, v.length() - 1);
+			}
 //            Log.d(TAG, "Float parsing '" + name + "=" + v + "'");
             return Float.parseFloat(v);
         }
     }
 
-    private static Integer getHexAttr(String name, Attributes attributes) {
+    private Integer getHexAttr(String name, Attributes attributes) {
         String v = getStringAttr(name, attributes);
         //Util.debug("Hex parsing '" + name + "=" + v + "'");
         if (v == null) {
@@ -551,7 +544,7 @@ public class SvgDecoder extends Decoder {
 		}
 	}
 
-    private static class NumberParse {
+    private class NumberParse {
         private ArrayList<Float> numbers;
         private int nextCmd;
 
@@ -586,7 +579,7 @@ public class SvgDecoder extends Decoder {
 	}
 	
 
-    private static class Gradient {
+    private class Gradient {
         String id;
         String xlink;
         boolean isLinear;
@@ -624,7 +617,7 @@ public class SvgDecoder extends Decoder {
         }
     }
 
-    private static class StyleSet {
+    private class StyleSet {
         HashMap<String, String> styleMap = new HashMap<String, String>();
 
         private StyleSet(String string) {
@@ -642,7 +635,7 @@ public class SvgDecoder extends Decoder {
         }
     }
 
-    private static class Properties {
+    private class Properties {
         StyleSet styles = null;
         Attributes atts;
 
@@ -1004,6 +997,9 @@ public class SvgDecoder extends Decoder {
         boolean whiteMode = false;
 
         boolean pushed = false;
+		
+		int width = 0;
+		int height = 0;
 
         HashMap<String, Shader> gradientMap = new HashMap<String, Shader>();
         HashMap<String, Gradient> gradientRefMap = new HashMap<String, Gradient>();
@@ -1014,6 +1010,15 @@ public class SvgDecoder extends Decoder {
             paint = new Paint();
             paint.setAntiAlias(true);
         }
+		
+		private SVGHandler(Picture picture, int width, int height) {
+            this.picture = picture;
+            paint = new Paint();
+            paint.setAntiAlias(true);
+			this.width = width;
+			this.height = height;
+        }
+		
 
         public void setColorSwap(Integer searchColor, Integer replaceColor) {
             this.searchColor = searchColor;
@@ -1208,8 +1213,10 @@ public class SvgDecoder extends Decoder {
         @Override
         public void startElement(String namespaceURI, String localName, String qName, Attributes atts) throws SAXException {
             // Reset paint opacity
+			Log.w(TAG, "startElement start");
             paint.setAlpha(255);
             // Ignore everything but rectangles in bounds mode
+			Log.w(TAG, "localName: "+localName);			
             if (boundsMode) {
                 if (localName.equals("rect")) {
                     Float x = getFloatAttr("x", atts);
@@ -1227,9 +1234,16 @@ public class SvgDecoder extends Decoder {
                 return;
             }
             if (localName.equals("svg")) {
-                int width = (int) Math.ceil(getFloatAttr("width", atts));
-                int height = (int) Math.ceil(getFloatAttr("height", atts));
-                canvas = picture.beginRecording(width, height);
+				Float widthf = getFloatAttr("width", atts);
+				Float heightf = getFloatAttr("height", atts);
+				if(widthf != null && heightf != null) {
+                	int width = (int) Math.ceil(widthf);
+                	int height = (int) Math.ceil(heightf);
+                	canvas = picture.beginRecording(width, height);
+				}
+				else {
+                	canvas = picture.beginRecording(this.width, this.height);
+				}
             } else if (localName.equals("defs")) {
                 // Ignore
             } else if (localName.equals("linearGradient")) {
@@ -1242,14 +1256,7 @@ public class SvgDecoder extends Decoder {
                     String styles = getStringAttr("style", atts);
                     StyleSet styleSet = new StyleSet(styles);
                     String colorStyle = styleSet.getStyle("stop-color");
-                    int color = Color.BLACK;
-                    if (colorStyle != null) {
-                        if (colorStyle.startsWith("#")) {
-                            color = Integer.parseInt(colorStyle.substring(1), 16);
-                        } else {
-                            color = Integer.parseInt(colorStyle, 16);
-                        }
-                    }
+                    int color = getColor(colorStyle);
                     String opacityStyle = styleSet.getStyle("stop-opacity");
                     if (opacityStyle != null) {
                         float alpha = Float.parseFloat(opacityStyle);
@@ -1391,7 +1398,34 @@ public class SvgDecoder extends Decoder {
             } else if (!hidden) {
                 Log.d(TAG, "UNRECOGNIZED SVG COMMAND: " + localName);
             }
+			Log.w(TAG, "startElement end");
         }
+		
+		public int getColor(String color) {
+			int ret = Color.BLACK;
+			if (color != null) {
+				if (color.startsWith("#")) {
+					ret = Integer.parseInt(color.substring(1), 16);
+				} else if (color.equalsIgnoreCase("black")) {
+					ret = Color.BLACK;
+				} else if (color.equalsIgnoreCase("white")) {
+					ret = Color.WHITE;
+				} else if (color.equalsIgnoreCase("blue")) {
+					ret = Color.BLUE;
+				} else if (color.equalsIgnoreCase("yellow")) {
+					ret = Color.YELLOW;
+				} else if (color.equalsIgnoreCase("red")) {
+					ret = Color.RED;
+				} else if (color.equalsIgnoreCase("green")) {
+					ret = Color.GREEN;
+				} else if (color.equalsIgnoreCase("gray")) {
+					ret = Color.GRAY;
+				} else {
+					ret = Integer.parseInt(color, 16);
+				}
+			}
+			return ret;			
+		}
 
         @Override
         public void characters(char ch[], int start, int length) {

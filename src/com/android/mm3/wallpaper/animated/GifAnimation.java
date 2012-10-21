@@ -77,7 +77,7 @@ public class GifAnimation extends Animation
 		{
 			int dx = (c.getWidth() - bitmap.getWidth()) / 2;
 			int dy = (c.getHeight() - bitmap.getHeight()) / 2;
-			//c.setBitmap(bitmap);
+			c.drawColor(Color.BLACK);
 			c.drawBitmap(bitmap, dx, dy, paint);
 		}
 		else if (style == Animation.STYLE_MOSTED)
