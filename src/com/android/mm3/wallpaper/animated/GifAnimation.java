@@ -26,19 +26,19 @@ public class GifAnimation extends Animation
 	
 	public GifAnimation(String s)
 	{
-		init(s, Animation.STYLE_MOSTED);
+		super(Animation.STYLE_MOSTED);
+		init(s);
 	}
 	
 	public GifAnimation(String s, int style)
 	{
-		init(s, style);
+		super(style);
+		init(s);
 	}
 	
-	public void init(String s, int style) 
+	public void init(String s) 
 	{
 		Log.w(TAG, "GifAnimation constructor");
-		
-		this.style = style;
 		
 		paint = new Paint();
 		paint.setAntiAlias(true);
@@ -85,7 +85,7 @@ public class GifAnimation extends Animation
 			int countX = c.getWidth() / bitmap.getWidth();
 			int countY = c.getHeight() / bitmap.getHeight();
 			int dx = (c.getWidth() - countX*bitmap.getWidth()) / 2 - bitmap.getWidth();
-			int dy = (c.getHeight() - bitmap.getHeight()) / 2 - bitmap.getHeight();
+			int dy = (c.getHeight() - countY*bitmap.getHeight()) / 2 - bitmap.getHeight();
 			countX += 2;
 			countY += 2;
 			

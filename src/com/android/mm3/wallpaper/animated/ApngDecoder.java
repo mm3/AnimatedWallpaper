@@ -10,16 +10,10 @@ import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 import java.util.zip.InflaterInputStream;
 
-	/**
-	 * TO-DO
-	 */
 	public class ApngDecoder extends Decoder
 	{
-		/** TO-DO */
 		public static final int acTL = 0x6163544C;
-		/** TO-DO */
 		public static final int fcTL = 0x6663544C;
-		/** TO-DO */
 		public static final int fdAT = 0x66644154;
 		
 		public static final int BITMASK		= 2;
@@ -34,6 +28,7 @@ import java.util.zip.InflaterInputStream;
 		private final List frames = new ArrayList();
 		private final Map frameData = new HashMap();
 		private final List defaultImageData = new ArrayList();
+		private Bitmap[] images = null;
 
 		private Rectangle headerBounds;
 		private boolean animated;
@@ -41,29 +36,14 @@ import java.util.zip.InflaterInputStream;
 		private boolean useDefaultImage;
 		private int numFrames;
 		private int numPlays;
-
-		
 		private final Map props = new HashMap();
     	private boolean read = false;
-	
-    	
-    	
-		/**
-		 * TO-DO
-		 */
+
 		public ApngDecoder ()
 		{
 			this.config = DEFAULT_CONFIG;
 		}
 
-		/**
-		 * TO-DO
-		 */
-	//	public AnimatedPngImage(PngConfig config)
-	//	{
-	//		super(new PngConfig.Builder(config).readLimit(PngConfig.READ_EXCEPT_DATA).build());
-	//	}
-		
 		public static class Dimension {
 			public Dimension(int width, int height) {
 				this.width = width;
@@ -71,7 +51,6 @@ import java.util.zip.InflaterInputStream;
 			}
 			int width = 0;
 			int height = 0;
-			
 		}
 
 		private void reset()
@@ -83,39 +62,28 @@ import java.util.zip.InflaterInputStream;
 			defaultImageData.clear();
 		}
 
-		/**
-		 * TO-DO
-		 */
 		public boolean isAnimated()
 		{
 			assertRead();
 			return animated;
 		}
 
-		/**
-		 * TO-DO
-		 */
 		public int getNumFrames()
 		{
 			assertRead();
 			return frames.size();
 		}
 
-		/**
-		 * TO-DO
-		 */
 		public int getNumPlays()
 		{
 			assertRead();
 			return animated ? numPlays : 1;
 		}
 
-		/**
-		 * TO-DO
-		 */
 		public Bitmap getFrame(int index)
 		{
-			return null; //getFrameControl(index);
+			assertRead();
+			return images[index];
 		}
 		
 		public FrameControl getFrameControl(int index) {
@@ -123,9 +91,6 @@ import java.util.zip.InflaterInputStream;
 			return (FrameControl)frames.get(index);			
 		}
 
-		/**
-		 * TO-DO
-		 */
 		public boolean isClearRequired()
 		{
 			assertRead();
@@ -136,24 +101,16 @@ import java.util.zip.InflaterInputStream;
 				!first.getBounds().equals(new Rectangle(getWidth(), getHeight()));
 		}
 
-		/**
-		 * TO-DO
-		 */
 		public Bitmap[] readAllFrames(InputStream in)
 		throws IOException
 		{
 			read(in);
-			Bitmap[] images = new Bitmap[getNumFrames()];
+			images = new Bitmap[getNumFrames()];
 			for (int i = 0; i < images.length; i++)
 				images[i] = readFrame(in, getFrameControl(i));
 			return images;
 		}
 
-		// TO-DO: make sure that file is what we read before?
-		// TO-DO: make sure that frame control is from this image?
-		/**
-		 * TO-DO
-		 */
 		public Bitmap readFrame(InputStream in, FrameControl frame)
 		throws IOException
 		{

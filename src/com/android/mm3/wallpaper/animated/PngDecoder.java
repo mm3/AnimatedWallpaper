@@ -45,8 +45,7 @@ import java.util.zip.Inflater;
  * @author Matthias Mann
  */
 
-public class TestPNGDecoder {
-//public class PNGDecoder {
+public class PngDecoder {
 
     public enum Format {
         ALPHA(1, true),
@@ -105,8 +104,7 @@ public class TestPNGDecoder {
     private byte[] paletteA;
     private byte[] transPixel;
     
-//    public PNGDecoder(InputStream input) throws IOException {
-    public TestPNGDecoder(InputStream input) throws IOException {
+    public PngDecoder(InputStream input) throws IOException {
         this.input = input;
         this.crc = new CRC32();
         this.buffer = new byte[4096];

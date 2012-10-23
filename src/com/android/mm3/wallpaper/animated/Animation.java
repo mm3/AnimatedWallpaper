@@ -3,6 +3,7 @@ package com.android.mm3.wallpaper.animated;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.util.Log;
+import android.graphics.*;
 
 public class Animation
 {
@@ -14,13 +15,21 @@ public class Animation
 	
 	public int style = Animation.STYLE_CENTRED;
 	
+	public Animation(){
+		style = Animation.STYLE_CENTRED;
+	}
+	
+	public Animation(int style) {
+		this.style = style;
+	}
+	
 	
 	public void draw (Canvas c) {
 		Paint p = new Paint();
 		Log.w(TAG, "draw");
-		p.setColor(0xaaaaaa);
-		c.drawRect(0,0,10,10,p);
-		c.drawText("No setup animation.", c.getWidth()/2, c.getHeight()/2, p);
+		p.setColor(Color.RED);
+		c.drawColor(Color.BLACK);
+		c.drawText("No setup animation.", 0, 0, p);
 	}
 	
 	public int getDelay() 

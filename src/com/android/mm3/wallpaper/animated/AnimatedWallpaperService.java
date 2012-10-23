@@ -71,6 +71,12 @@ public class AnimatedWallpaperService extends WallpaperService {
 					Log.w(TAG, "setup gif wallpaper");
 					animation = new GifAnimation(fileName, Integer.valueOf(style));
 				}
+				else if(file.getName().endsWith(".png") || file.getName().endsWith(".apng"))
+				{
+					//Toast.makeText(getContext(),"this is gif", 7000).show();
+					Log.w(TAG, "setup apng wallpaper");
+					animation = new ApngAnimation(fileName, Integer.valueOf(style));
+				}
 				else if(file.getName().endsWith(".svg"))
 				{
 					Log.w(TAG, "setup svg wallpaper");
@@ -162,7 +168,7 @@ public class AnimatedWallpaperService extends WallpaperService {
 				e.printStackTrace();
 				Toast.makeText(getContext(),"Exception in drawFrame: "+e, 1000).show();
 				Log.w(TAG, "Exception: "+e);
-				
+				stopRunnable();
 			}
 			c.restore();
 		}
@@ -186,6 +192,7 @@ public class AnimatedWallpaperService extends WallpaperService {
 				}
 			} catch(Exception e) {
 				e.printStackTrace();
+				stopRunnable();
 			}
 			finally
 			{

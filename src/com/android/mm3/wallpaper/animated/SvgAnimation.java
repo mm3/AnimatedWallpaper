@@ -19,20 +19,17 @@ public class SvgAnimation extends Animation
 	protected Paint paint = null;
 	
 	public SvgAnimation(String file, int style, int width, int height){
-		init(file, style, width, height);
+		super(style);
+		init(file, width, height);
 	}
 		
-	public void init(String s, int style, int width, int height) {
+	public void init(String s, int width, int height) {
 		Log.w(TAG, "SvgAnimation constructor");
-
-		this.style = style;
 
 		paint = new Paint();
 		paint.setAntiAlias(true);
 
 		InputStream is = null;
-		Canvas c = null;
-
         try {
 			
             is = new FileInputStream(s);
