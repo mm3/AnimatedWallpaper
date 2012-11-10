@@ -12,6 +12,10 @@
     <string name="settings_delay_summary">if 0 then standart delay</string>
 	<string name="title_style">Style</string>
 	<string name="summary_style">Style of animation</string>
-	
+	<string name="button_save">Save</string>
+	<string name="back_folder">..</string>
+	<string name="title_file_view_activity">Select file or folder</string>
+	<string name="title_file_view_section">Select file or folder</string>
+		
 
 </resources>

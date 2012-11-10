@@ -2,10 +2,12 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
                   android:title="@string/settings"
                   android:key="settings">
-	<EditTextPreference	android:key="file_name"
-						android:title="@string/settings_file_name"
-						android:summary="@string/settings_file_name_summary" />
-
+    <Preference android:title="@string/title_file_view_section" >
+        <intent android:action="android.intent.action.MAIN"
+                android:targetPackage="com.android.mm3.wallpaper.animated"
+                android:targetClass="com.android.mm3.wallpaper.animated.FileViewActivity" />
+    </Preference>
+    
     <ListPreference
 		android:key="style_anim" 
 		android:title="@string/title_style" 

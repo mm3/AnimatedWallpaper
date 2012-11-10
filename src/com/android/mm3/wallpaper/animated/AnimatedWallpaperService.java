@@ -1,5 +1,6 @@
 package com.android.mm3.wallpaper.animated;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.os.Handler;
@@ -8,11 +9,8 @@ import android.preference.PreferenceManager;
 import android.service.wallpaper.WallpaperService;
 import android.view.SurfaceHolder;
 import java.io.File;
-//import java.io.*;
 import android.widget.Toast;
 import android.util.Log;
-import android.content.*;
-import java.util.concurrent.*;
 
 public class AnimatedWallpaperService extends WallpaperService {
 
@@ -47,7 +45,7 @@ public class AnimatedWallpaperService extends WallpaperService {
 		{
 			super();
 			PreferenceManager.setDefaultValues(AnimatedWallpaperService.this, R.layout.settings, false );
-			SharedPreferences p = AnimatedWallpaperService.this.getSharedPreferences(	SHARED_PREFERENCES_NAME, 0 );
+			SharedPreferences p = AnimatedWallpaperService.this.getSharedPreferences(SHARED_PREFERENCES_NAME, 0);
 			p.registerOnSharedPreferenceChangeListener( this );
 			onSharedPreferenceChanged( p, null );
 		}
@@ -166,7 +164,7 @@ public class AnimatedWallpaperService extends WallpaperService {
 			}
 			} catch(Exception e) {
 				e.printStackTrace();
-				Toast.makeText(getContext(),"Exception in drawFrame: "+e, 1000).show();
+				Toast.makeText(getContext(),"Exception in drawFrame: "+e, Toast.LENGTH_LONG).show();
 				Log.w(TAG, "Exception: "+e);
 				stopRunnable();
 			}
