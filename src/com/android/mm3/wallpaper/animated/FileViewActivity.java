@@ -11,13 +11,15 @@ import android.os.Environment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.os.*;
 
-public class FileViewActivity extends Activity implements View.OnClickListener {
+public class FileViewActivity extends Activity implements AdapterView.OnItemClickListener {
 	
 	private GridView listView = null;
 	private File root = null;
@@ -41,7 +43,7 @@ public class FileViewActivity extends Activity implements View.OnClickListener {
 		}
 		this.listView = (GridView) findViewById(R.id.file_list);
 		this.listView.setAdapter(new FileViewAdapret(this, this.root));
-		this.listView.setOnClickListener(this);
+		this.listView.setOnItemClickListener(this);
 		
 		Button btnSave = (Button) findViewById(R.id.button_save);
 		btnSave.setOnClickListener(new View.OnClickListener() {
@@ -52,7 +54,10 @@ public class FileViewActivity extends Activity implements View.OnClickListener {
 	}
 	
 	private static boolean isImage(String t) {
-		return false;
+		return t.endsWith(".gif") ||
+		       t.endsWith(".jpg") ||
+			   t.endsWith(".png") ||
+			   t.endsWith(".svg");
 	}
 	
 	private void save(String path) {
@@ -68,7 +73,10 @@ public class FileViewActivity extends Activity implements View.OnClickListener {
 		private File[] content = null;
 		private LayoutInflater inflater = null;
 		private int haveParent = 0;
+		private Context context = null;
+		
 		public FileViewAdapret(Context c, File root) {
+			this.context = c;
 			this.inflater = LayoutInflater.from(c);
 			this.content = root.listFiles();
 			this.haveParent = (root.getParent() != null) ? 1 : 0;
@@ -93,7 +101,7 @@ public class FileViewActivity extends Activity implements View.OnClickListener {
 		public View getView(int position, View convertView, ViewGroup parent) {
 			View v = convertView;
 			if(v == null) {
-				v = inflater.inflate(R.layout.file_item, parent);
+				v = inflater.inflate(R.layout.file_item, parent, false);
 			}
 			ImageView i = (ImageView) v.findViewById(R.id.image);
 			TextView t = (TextView) v.findViewById(R.id.text);
@@ -107,6 +115,7 @@ public class FileViewActivity extends Activity implements View.OnClickListener {
 				i.setImageDrawable(folder_img);
 			} else if(isImage(this.content[position - this.haveParent].getName())) {
 				i.setImageDrawable(image_img);
+				new LoadIconTask().execute(this.content[position - this.haveParent].getAbsolutePath(), i);
 			} else {
 				i.setImageDrawable(file_img);
 			}
@@ -117,10 +126,11 @@ public class FileViewActivity extends Activity implements View.OnClickListener {
 	}
 
 	@Override
-	public void onClick(View v) {
+	public void onItemClick(AdapterView<?> parent, View v, int position, long id) {
 		File f = (File) v.getTag();
 		if(f == null) {
 			this.root = this.root.getParentFile();
+			this.listView.setAdapter(new FileViewAdapret(this, this.root));
 		} else if(f.isDirectory()) {
 			this.root = f;
 			this.listView.setAdapter(new FileViewAdapret(this, this.root));
@@ -128,5 +138,32 @@ public class FileViewActivity extends Activity implements View.OnClickListener {
 			save(f.getAbsolutePath());
 		}
 		
+	}
+	
+	public static class LoadIconTask extends AsyncTask<Object, Void, View> {
+		@Override
+		protected View doInBackground(Object... params) {
+			try {
+				final String file = (String) params[0];
+				final View v = (View) params[1];
+				if(v.getTag() == null) {
+					Drawable d = Drawable.createFromPath(file);
+					v.setTag(d);
+				}
+				return v;
+			} catch(Exception e) {
+				return null;
+			}
+		}
+		protected void onPostExecute(View v) {
+			try {
+				Drawable d = (Drawable) v.getTag();
+				ImageView view = (ImageView) v;
+				Drawable old = view.getDrawable();
+				d.setBounds(0,0,old.getIntrinsicWidth(), old.getIntrinsicHeight());
+				//d.setBounds(old.getBounds());
+				view.setImageDrawable(d);
+			} catch(Exception e) {}
+		}
 	}
 }
