@@ -6,6 +6,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.LayoutInflater;
@@ -18,6 +20,8 @@ import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.os.*;
+import android.text.style.*;
+import android.view.*;
 
 public class FileViewActivity extends Activity implements AdapterView.OnItemClickListener {
 	
@@ -147,8 +151,9 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 				final String file = (String) params[0];
 				final View v = (View) params[1];
 				if(v.getTag() == null) {
-					Drawable d = Drawable.createFromPath(file);
-					v.setTag(d);
+					Bitmap b = BitmapFactory.decodeFile(file);
+					b = Bitmap.createScaledBitmap(b, v.getWidth(), v.getHeight(), false);
+					v.setTag(b);
 				}
 				return v;
 			} catch(Exception e) {
@@ -157,12 +162,9 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 		}
 		protected void onPostExecute(View v) {
 			try {
-				Drawable d = (Drawable) v.getTag();
-				ImageView view = (ImageView) v;
-				Drawable old = view.getDrawable();
-				d.setBounds(0,0,old.getIntrinsicWidth(), old.getIntrinsicHeight());
-				//d.setBounds(old.getBounds());
-				view.setImageDrawable(d);
+				Bitmap b = (Bitmap) v.getTag();
+				ImageView i = (ImageView) v;
+				i.setImageBitmap(b);
 			} catch(Exception e) {}
 		}
 	}
