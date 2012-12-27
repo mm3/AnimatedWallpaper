@@ -6,8 +6,6 @@ import android.graphics.Bitmap;
 
 public class Decoder
 {
-
-
 	public int read(InputStream is) {
 		return 0;
 	}

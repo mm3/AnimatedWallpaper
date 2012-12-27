@@ -1,6 +1,7 @@
 package com.android.mm3.wallpaper.animated;
 
 
+import android.content.res.Resources;
 import android.graphics.Canvas;
 import android.graphics.Bitmap;
 import android.util.Log;
@@ -22,7 +23,6 @@ public class GifAnimation extends Animation
 	protected int counter = 0;
 	protected int maxCount = 0;
 	protected Drawable[] drawables = null;
-	protected Paint paint = null;
 	
 	public GifAnimation(String s)
 	{
@@ -36,117 +36,109 @@ public class GifAnimation extends Animation
 		init(s);
 	}
 	
-	public void init(String s) 
+	public void init(final String s) 
 	{
-		Log.w(TAG, "GifAnimation constructor");
-		
-		paint = new Paint();
-		paint.setAntiAlias(true);
-		
-		InputStream is = null;
-		
-        try {
-            is = new FileInputStream(s);
-			gifDecoder = new GifDecoder();
-			gifDecoder.read(is);
-			maxCount = gifDecoder.getFrameCount();
-        }
-        catch (Exception e) {
-            Log.e(TAG, "GifAnimation exeption" + e);
-        }
-		finally {
-			try {
-			    if(is != null) {
-				    is.close();
-				    is = null;
-			    }
-			} catch (Exception e) {}
-		}
-		Log.w(TAG, "GifAnimation constructor end");
+		Thread t = new Thread() {
+			@Override
+			public void run() {
+				Log.d(TAG, "GifAnimation constructor");
+				InputStream is = null;
+		        try {
+		            is = new FileInputStream(s);
+		            GifDecoder decoder = new GifDecoder();
+					decoder.read(is);
+					setDecoder(decoder);
+		        }
+		        catch (Exception e) {
+		            Log.e(TAG, "GifAnimation exeption" + e);
+		        }
+				finally {
+					try {
+					    if(is != null) {
+						    is.close();
+						    is = null;
+					    }
+					} catch (Exception e) {}
+				}
+				Log.d(TAG, "GifAnimation constructor end");
+			}
+		};
+		t.start();
 	}
 	
-	public void draw (Canvas c)
-	{
-		if(counter >= maxCount) {
-			counter = 0;
+	private void setDecoder(GifDecoder decoder) {
+		this.maxCount = decoder.getFrameCount();
+		this.gifDecoder = decoder;
+		this.counter = 0;
+	}
+
+	public void getNextFrame(Canvas c) {
+		if(this.gifDecoder == null) {
+			return;
 		}
-		c.drawColor(Color.TRANSPARENT);
-		bitmap = gifDecoder.getFrame(counter);
 		
-		if(style == Animation.STYLE_CENTRED)
-		{
-			int dx = (c.getWidth() - bitmap.getWidth()) / 2;
-			int dy = (c.getHeight() - bitmap.getHeight()) / 2;
+		if(this.counter >= this.maxCount) {
+			this.counter = 0;
+		}
+		
+		this.bitmap = this.gifDecoder.getFrame(this.counter);
+		
+		if (this.style == Animation.STYLE_RESIZED) {
+			if(this.drawables == null) 
+			{
+				this.drawables = new Drawable[this.maxCount];
+			}
+			if(this.drawables[this.counter] == null)
+			{
+				this.drawables[this.counter] = new BitmapDrawable(Resources.getSystem(), this.bitmap);
+			}
+		}
+		
+	}
+	
+	public int getImageWidth(Canvas c) {
+		return (this.bitmap != null) ? this.bitmap.getWidth() : c.getWidth();
+	}
+	
+	public int getImageHeight(Canvas c) {
+		return (this.bitmap != null) ? this.bitmap.getHeight() : c.getHeight();
+	}
+
+	
+	public void drawImage(Canvas c, int left, int top, int right, int bottom, Paint paint) {
+		if(this.gifDecoder == null) {
 			c.drawColor(Color.BLACK);
-			c.drawBitmap(bitmap, dx, dy, paint);
+			return;
 		}
-		else if (style == Animation.STYLE_MOSTED)
-		{
-			int countX = c.getWidth() / bitmap.getWidth();
-			int countY = c.getHeight() / bitmap.getHeight();
-			int dx = (c.getWidth() - countX*bitmap.getWidth()) / 2 - bitmap.getWidth();
-			int dy = (c.getHeight() - countY*bitmap.getHeight()) / 2 - bitmap.getHeight();
-			countX += 2;
-			countY += 2;
-			
-			for(int j = 0; j < countY; j++)
-			{
-				for(int i = 0; i < countX; i++)
-				{
-					c.drawBitmap(bitmap, dx + i*bitmap.getWidth(), dy + j*bitmap.getHeight(), paint);
+		switch(this.style) {
+			case Animation.STYLE_RESIZED:
+				if(this.drawables != null && this.drawables[this.counter] != null) {
+					this.drawables[this.counter].setBounds(left,top,right,bottom);
+					this.drawables[this.counter].draw(c);
 				}
-			}
+				break;
+			case Animation.STYLE_CENTRED:
+			case Animation.STYLE_MOSTED:
+			default:
+				c.drawColor(Color.BLACK);
+				if(this.bitmap != null) {
+					c.drawBitmap(this.bitmap, left, top, paint);
+				}
+				break;
 		}
-		else if (style == Animation.STYLE_RESIZED) 
-		{
-			if(drawables == null) 
-			{
-				drawables = new Drawable[maxCount];
-			}
-			if(drawables[counter] == null)
-			{
-				drawables[counter] = new BitmapDrawable(bitmap);
-			}
-			float scaleb = (float)bitmap.getWidth()/(float)bitmap.getHeight();
-			float scalec = (float)c.getWidth()/(float)c.getHeight();
-			//Log.w(TAG, "canvas width="+c.getWidth()+" height="+c.getHeight());
-			//Log.w(TAG, "bitmap width="+bitmap.getWidth()+" height="+bitmap.getHeight());
-			if(scalec < scaleb)
-			{
-				int height = (int)(((float)c.getWidth())/scaleb);
-				int countd = c.getHeight() / height;
-				int dd = (c.getHeight() - countd*height) / 2 - height;
-				countd += 2;
+	}
 
-				for(int i = 0; i < countd; i++)
-				{
-					drawables[counter].setBounds(0,dd+i*height,c.getWidth(),dd+i*height+height);
-					drawables[counter].draw(c);
-				}
-			}
-			else 
-			{
-				int width = (int)(((float)c.getHeight())*scaleb);
-				int countd = c.getWidth() / width;
-				int dd = (c.getWidth() - countd*width) / 2 - width;
-				countd += 2;
-
-				for(int i = 0; i < countd; i++)
-				{
-					drawables[counter].setBounds(dd+i*width,0,dd+i*width+width,c.getHeight());
-					drawables[counter].draw(c);
-				}
-			}
-		}
-		else
-		{
-			c.drawBitmap(bitmap, 0, 0, paint);
-		}
-		counter++;
+	public void drawEnd(Canvas c) {
+		this.counter++;
 	}
 	
 	public int getDelay() 
 	{
-		return gifDecoder.getDelay(counter);
+		if(this.gifDecoder != null ) {
+			return this.gifDecoder.getDelay(this.counter);
+		}
+		else {
+			return 100;
+		}
 	}
 }

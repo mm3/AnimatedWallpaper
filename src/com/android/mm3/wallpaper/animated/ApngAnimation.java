@@ -5,8 +5,6 @@ import android.graphics.Bitmap;
 import android.util.Log;
 import java.io.InputStream;
 import java.io.FileInputStream;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.Color;
 import android.graphics.Paint;
 import java.nio.*;
@@ -16,7 +14,6 @@ public class ApngAnimation extends Animation
 {
 	static final public String TAG = "ApngAnimation";
 	
-	protected Paint paint;
 	protected Bitmap bitmap = null;
 	
 	public ApngAnimation(String s, int style) {
@@ -26,9 +23,6 @@ public class ApngAnimation extends Animation
 	
 	public void init(String s) {
 		Log.w(TAG, "ApngAnimation constructor");
-
-		paint = new Paint();
-		paint.setAntiAlias(true);
 
 		InputStream is = null;
 
@@ -62,15 +56,29 @@ public class ApngAnimation extends Animation
 		
 	}
 	
-	public void draw (Canvas c) {
+	public void getNextFrame(Canvas c) {
 		Log.w(TAG, "draw");
-		c.drawColor(Color.BLACK);
-		c.drawBitmap(bitmap, 0, 0, paint);
+	}
+	
+	public int getImageWidth(Canvas c) {
+		return (this.bitmap != null) ? this.bitmap.getWidth() : c.getWidth();
+	}
+	
+	public int getImageHeight(Canvas c) {
+		return (this.bitmap != null) ? this.bitmap.getHeight() : c.getHeight();
 	}
 
+	public void drawImage(Canvas c, int left, int top, int right, int bottom, Paint paint) {
+		c.drawColor(Color.BLACK);
+		c.drawBitmap(this.bitmap, left, top, paint);
+	}
+	
+	public void drawEnd(Canvas c) {
+	}
+	
 	public int getDelay() 
 	{
-		return Integer.MAX_VALUE;
+		return super.getDelay();
 	}
 	
 }

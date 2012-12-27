@@ -1,10 +1,14 @@
 package com.android.mm3.wallpaper.animated;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
 
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap.Config;
 import android.graphics.drawable.Drawable;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -20,8 +24,6 @@ import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.os.*;
-import android.text.style.*;
-import android.view.*;
 
 public class FileViewActivity extends Activity implements AdapterView.OnItemClickListener {
 	
@@ -81,7 +83,7 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 		
 		public FileViewAdapret(Context c, File root) {
 			this.context = c;
-			this.inflater = LayoutInflater.from(c);
+			this.inflater = LayoutInflater.from(this.context);
 			this.content = root.listFiles();
 			this.haveParent = (root.getParent() != null) ? 1 : 0;
 		}
@@ -151,7 +153,31 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 				final String file = (String) params[0];
 				final View v = (View) params[1];
 				if(v.getTag() == null) {
-					Bitmap b = BitmapFactory.decodeFile(file);
+					BitmapFactory.Options op = new BitmapFactory.Options();
+					int scale = 1;
+					InputStream in = null;
+					try {
+						in = new BufferedInputStream(new FileInputStream(file));
+						op.inJustDecodeBounds = true;
+						BitmapFactory.decodeStream(in, null, op);
+						if(op.outWidth > op.outHeight) {
+							scale = Math.round((float) op.outHeight / (float) v.getHeight());
+						} else {
+							scale = Math.round((float) op.outWidth / (float) v.getWidth());
+						}
+					} catch (Exception e) {						
+					} finally {
+						try {
+							if(in != null) {
+								in.close();
+								in = null;
+							}
+						} catch (Exception e) {}
+					}
+					op = new BitmapFactory.Options();
+					op.inSampleSize = scale;
+					op.inPreferredConfig = Config.RGB_565;
+					Bitmap b = BitmapFactory.decodeFile(file, op);
 					b = Bitmap.createScaledBitmap(b, v.getWidth(), v.getHeight(), false);
 					v.setTag(b);
 				}

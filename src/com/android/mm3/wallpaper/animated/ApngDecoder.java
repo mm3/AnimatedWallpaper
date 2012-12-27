@@ -1,6 +1,5 @@
 package com.android.mm3.wallpaper.animated;
 
-import java.awt.*;
 import java.io.*;
 import java.util.*;
 import android.graphics.*;
@@ -8,7 +7,6 @@ import android.graphics.*;
 import java.util.zip.CRC32;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
-import java.util.zip.InflaterInputStream;
 
 	public class ApngDecoder extends Decoder
 	{

@@ -4,7 +4,6 @@ import android.util.Log;
 import java.io.InputStream;
 import java.io.FileInputStream;
 import android.graphics.*;
-import android.view.*;
 
 public class SvgAnimation extends Animation
 {

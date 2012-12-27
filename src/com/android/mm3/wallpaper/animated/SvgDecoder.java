@@ -11,13 +11,10 @@ import org.xml.sax.helpers.DefaultHandler;
 
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Vector;
 import java.util.ArrayList;
 import java.util.HashMap;
-import android.graphics.drawable.*;
 
 
 public class SvgDecoder extends Decoder {
