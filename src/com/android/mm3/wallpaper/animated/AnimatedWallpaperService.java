@@ -147,7 +147,8 @@ public class AnimatedWallpaperService extends WallpaperService {
 		@Override
 		public void onOffsetsChanged(float xOffset, float yOffset, float xOffsetStep, float yOffsetStep, int xPixelOffset, int yPixelOffset )
 		{
-			nextFrame();
+			super.onOffsetsChanged(xOffset, yOffset, xOffsetStep, yOffsetStep, xPixelOffset, yPixelOffset);
+			//nextFrame();
 		}
 
 		protected void drawFrame( final Canvas c, final float t )

@@ -36,5 +36,21 @@
 			<action android:name="android.intent.action.MAIN" />
 			</intent-filter>
         </activity>
+        
+        <activity
+            android:name=".PictureViewerActivity"
+            android:label="@string/viewer_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".ViewPictureActivity"
+            android:label="@string/title_view_picture" >
+			<intent-filter>
+			<action android:name="android.intent.action.MAIN" />
+			</intent-filter>
+        </activity>
     </application>
 </manifest>

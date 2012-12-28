@@ -1,10 +1,11 @@
 <resources>
 
     <string name="app_name">AnimatedWallpaper</string>
-    <string name="hello_world">Hello world!</string>
+    <string name="viewer_name">Animated Images Viewer</string>
     <string name="settings">Animated Wallpaper Settings</string>
     <string name="title_activity_settings_wallpaper">Settings Wallpaper</string>
     <string name="title_service_wallpaper">Animated Live Wallpaper</string>
+    <string name="title_view_picture">Image</string>
     <string name="description">Animated Wallpaper</string>
     <string name="settings_file_name">File Name</string>
     <string name="settings_file_name_summary">Files with extentions gif, jpg, png, svg</string>
@@ -14,6 +15,7 @@
 	<string name="summary_style">Style of animation</string>
 	<string name="button_save">Save</string>
 	<string name="back_folder">..</string>
+	<string name="hello_world">.</string>
 	<string name="title_file_view_activity">Select file or folder</string>
 	<string name="title_file_view_section">Select file or folder</string>
 		

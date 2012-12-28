@@ -30,26 +30,16 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 	private GridView listView = null;
 	private File root = null;
 	
-	private Drawable folder_img;
-	private Drawable file_img;
-	private Drawable image_img;
+	protected Drawable folder_img;
+	protected Drawable file_img;
+	protected Drawable image_img;
 	
 	@Override
     public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		setContentView(R.layout.grid_file_view);
 		
-		folder_img = this.getResources().getDrawable(R.drawable.ic_folder_item);
-		file_img = this.getResources().getDrawable(R.drawable.ic_file_icon);
-		image_img = this.getResources().getDrawable(R.drawable.ic_image_item);
-		
-		this.root = Environment.getExternalStorageDirectory();
-		if(this.root == null) {
-			this.root = Environment.getDataDirectory();
-		}
-		this.listView = (GridView) findViewById(R.id.file_list);
-		this.listView.setAdapter(new FileViewAdapret(this, this.root));
-		this.listView.setOnItemClickListener(this);
+		init((GridView) findViewById(R.id.file_list));
 		
 		Button btnSave = (Button) findViewById(R.id.button_save);
 		btnSave.setOnClickListener(new View.OnClickListener() {
@@ -59,6 +49,20 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
         });
 	}
 	
+	protected void init(GridView listView) {
+		folder_img = this.getResources().getDrawable(R.drawable.ic_folder_item);
+		file_img = this.getResources().getDrawable(R.drawable.ic_file_icon);
+		image_img = this.getResources().getDrawable(R.drawable.ic_image_item);
+		
+		this.root = Environment.getExternalStorageDirectory();
+		if(this.root == null) {
+			this.root = Environment.getDataDirectory();
+		}
+		this.listView = listView;
+		this.listView.setAdapter(new FileViewAdapret(this, this.root));
+		this.listView.setOnItemClickListener(this);
+	}
+	
 	private static boolean isImage(String t) {
 		return t.endsWith(".gif") ||
 		       t.endsWith(".jpg") ||
@@ -66,7 +70,7 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 			   t.endsWith(".svg");
 	}
 	
-	private void save(String path) {
+	protected void save(String path) {
 		SharedPreferences p = getSharedPreferences(AnimatedWallpaperService.SHARED_PREFERENCES_NAME, 0);
 		SharedPreferences.Editor editor = p.edit();
 		editor.putString("file_name", path);
