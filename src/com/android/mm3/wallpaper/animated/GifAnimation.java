@@ -18,7 +18,7 @@ public class GifAnimation extends Animation
 	static final public String TAG = "GifAnimation";
 	
 
-	protected Decoder gifDecoder = null;
+	protected Decoder decoder = null;
 	protected Bitmap bitmap = null;
 	protected int counter = 0;
 	protected int maxCount = 0;
@@ -45,9 +45,7 @@ public class GifAnimation extends Animation
 				InputStream is = null;
 		        try {
 		            is = new FileInputStream(s);
-		            GifDecoder decoder = new GifDecoder();
-					decoder.read(is);
-					setDecoder(decoder);
+					setDecoder(newDecoder(is));
 		        }
 		        catch (Exception e) {
 		            Log.e(TAG, "GifAnimation exeption" + e);
@@ -66,14 +64,21 @@ public class GifAnimation extends Animation
 		t.start();
 	}
 	
-	private void setDecoder(GifDecoder decoder) {
+	protected Decoder newDecoder(InputStream is) {
+        GifDecoder decoder = new GifDecoder();
+		decoder.read(is);
+		return decoder;
+	}
+
+	
+	private void setDecoder(Decoder decoder) {
 		this.maxCount = decoder.getFrameCount();
-		this.gifDecoder = decoder;
+		this.decoder = decoder;
 		this.counter = 0;
 	}
 
 	public void getNextFrame(Canvas c) {
-		if(this.gifDecoder == null) {
+		if(this.decoder == null) {
 			return;
 		}
 		
@@ -81,7 +86,7 @@ public class GifAnimation extends Animation
 			this.counter = 0;
 		}
 		
-		this.bitmap = this.gifDecoder.getFrame(this.counter);
+		this.bitmap = this.decoder.getFrame(this.counter);
 		
 		if (this.style == Animation.STYLE_RESIZED) {
 			if(this.drawables == null) 
@@ -106,7 +111,7 @@ public class GifAnimation extends Animation
 
 	
 	public void drawImage(Canvas c, int left, int top, int right, int bottom, Paint paint) {
-		if(this.gifDecoder == null) {
+		if(this.decoder == null) {
 			c.drawColor(Color.BLACK);
 			return;
 		}
@@ -134,8 +139,8 @@ public class GifAnimation extends Animation
 	
 	public int getDelay() 
 	{
-		if(this.gifDecoder != null ) {
-			return this.gifDecoder.getDelay(this.counter);
+		if(this.decoder != null ) {
+			return this.decoder.getDelay(this.counter);
 		}
 		else {
 			return 100;
