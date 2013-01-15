@@ -7,16 +7,19 @@ import java.io.InputStream;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap.Config;
 import android.graphics.drawable.Drawable;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.MimeTypeMap;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.Button;
@@ -25,7 +28,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.os.*;
 
-public class FileViewActivity extends Activity implements AdapterView.OnItemClickListener {
+public class FileViewActivity extends Activity implements AdapterView.OnItemClickListener, AdapterView.OnItemLongClickListener {
 	
 	private GridView listView = null;
 	private File root = null;
@@ -61,6 +64,7 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 		this.listView = listView;
 		this.listView.setAdapter(new FileViewAdapret(this, this.root));
 		this.listView.setOnItemClickListener(this);
+		this.listView.setOnItemLongClickListener(this);
 	}
 	
 	private static boolean isImage(String t) {
@@ -197,5 +201,28 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 				i.setImageBitmap(b);
 			} catch(Exception e) {}
 		}
+	}
+
+	@Override
+	public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
+		File f = (File) view.getTag();
+		if(f != null && f.isFile()) {
+			Intent intent = new Intent();
+			intent.setAction(android.content.Intent.ACTION_VIEW);
+			Uri uri = Uri.fromFile(f);
+			String name = f.getName();
+			MimeTypeMap mime = MimeTypeMap.getSingleton();
+            String ext=name.substring(name.indexOf(".")+1).toLowerCase();
+            String type = mime.getMimeTypeFromExtension(ext);
+			intent.setDataAndType(uri, type);
+			try {
+				startActivity(intent);
+			} catch(Exception e) {
+				intent.setDataAndType(uri, "*/*");
+				startActivity(intent);
+			}
+			return true;
+		}
+		return false;
 	}
 }

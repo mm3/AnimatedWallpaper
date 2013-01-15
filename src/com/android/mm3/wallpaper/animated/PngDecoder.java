@@ -1,14 +1,16 @@
-//package de.matthiasmann.twl.utils;
 package com.android.mm3.wallpaper.animated;
 
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.zip.CRC32;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
+
+import android.graphics.Bitmap;
+import android.graphics.Bitmap.Config;
+import android.graphics.Color;
 
 /**
  * A PNGDecoder. The slick PNG decoder is based on this class :)
@@ -25,7 +27,8 @@ public class PngDecoder {
         RGB(3, false),
         RGBA(4, true),
         BGRA(4, true),
-        ABGR(4, true);
+        ABGR(4, true),
+        ARGB(4, true);
 
         final int numComponents;
         final boolean hasAlpha;
@@ -51,6 +54,9 @@ public class PngDecoder {
     private static final int tRNS = 0x74524E53;
     private static final int IDAT = 0x49444154;
     private static final int IEND = 0x49454E44;
+    private static final int acTL = 0x6163544C;
+    private static final int fcTL = 0x6663544C;
+    private static final int fdAT = 0x66644154;
     
     private static final byte COLOR_GREYSCALE = 0;
     private static final byte COLOR_TRUECOLOR = 2;
@@ -65,6 +71,10 @@ public class PngDecoder {
     private int chunkLength;
     private int chunkType;
     private int chunkRemaining;
+    
+    private boolean animated = false;
+    private int numFrames = 0;
+    private int numPlays = 0;
     
     private int width;
     private int height;
@@ -85,13 +95,12 @@ public class PngDecoder {
             throw new IOException("Not a valid PNG file");
         }
         
-        openChunk(IHDR);
-        readIHDR();
-        closeChunk();
-        
         searchIDAT: for(;;) {
             openChunk();
             switch (chunkType) {
+            case IHDR:
+            	readIHDR();
+            	break;
             case IDAT:
                 break searchIDAT;
             case PLTE:
@@ -100,6 +109,18 @@ public class PngDecoder {
             case tRNS:
                 readtRNS();
                 break;
+            case acTL:
+            	readacTL();
+            	break;
+            case fcTL:
+            	readfcTL();
+            	break;
+            case fdAT:
+            	readfdAT();
+            	break;
+            case IEND:
+            	readIEND();
+            	break;
             }
             closeChunk();
         }
@@ -187,6 +208,7 @@ public class PngDecoder {
         case COLOR_TRUECOLOR:
             switch (fmt) {
             case ABGR:
+            case ARGB:
             case RGBA:
             case BGRA:
             case RGB: return fmt;
@@ -195,6 +217,7 @@ public class PngDecoder {
         case COLOR_TRUEALPHA:
             switch (fmt) {
             case ABGR:
+            case ARGB:
             case RGBA:
             case BGRA:
             case RGB: return fmt;
@@ -211,6 +234,7 @@ public class PngDecoder {
         case COLOR_INDEXED:
             switch (fmt) {
             case ABGR:
+            case ARGB:
             case RGBA:
             case BGRA: return fmt;
             default: return Format.RGBA;
@@ -221,23 +245,20 @@ public class PngDecoder {
     }
 
     /**
-     * Decodes the image into the specified buffer. The first line is placed at
-     * the current position. After decode the buffer position is at the end of
-     * the last line.
+     * Decodes the image into the Bitmap.
      *
-     * @param buffer the buffer
-     * @param stride the stride in bytes from start of a line to start of the next line, can be negative.
-     * @param fmt the target format into which the image should be decoded.
      * @throws IOException if a read or data error occurred
      * @throws IllegalArgumentException if the start position of a line falls outside the buffer
      * @throws UnsupportedOperationException if the image can't be decoded into the desired format
      */
-    public void decode(ByteBuffer buffer, int stride, Format fmt) throws IOException {
-        final int offset = buffer.position();
+    public Bitmap decodeBitmap() throws IOException {
         final int lineSize = ((width * bitdepth + 7) / 8) * bytesPerPixel;
+        int offset = 0;
         byte[] curLine = new byte[lineSize+1];
         byte[] prevLine = new byte[lineSize+1];
         byte[] palLine = (bitdepth < 8) ? new byte[width+1] : null;
+        
+        int[] dest = new int[width * height];
         
         final Inflater inflater = new Inflater();
         try {
@@ -245,54 +266,80 @@ public class PngDecoder {
                 readChunkUnzip(inflater, curLine, 0, curLine.length);
                 unfilter(curLine, prevLine);
 
-                buffer.position(offset + y*stride);
-
                 switch (colorType) {
                 case COLOR_TRUECOLOR:
-                    switch (fmt) {
-                    case ABGR: copyRGBtoABGR(buffer, curLine); break;
-                    case RGBA: copyRGBtoRGBA(buffer, curLine); break;
-                    case BGRA: copyRGBtoBGRA(buffer, curLine); break;
-                    case RGB: copy(buffer, curLine); break;
-                    default: throw new UnsupportedOperationException("Unsupported format for this image");
+                    {
+	                    if(transPixel != null) {
+	                        byte tr = transPixel[1];
+	                        byte tg = transPixel[3];
+	                        byte tb = transPixel[5];
+	                        for(int i=1,n=curLine.length ; i<n ; i+=3) {
+	                            byte r = curLine[i];
+	                            byte g = curLine[i+1];
+	                            byte b = curLine[i+2];
+	                            byte a = (byte)0xFF;
+	                            if(r==tr && g==tg && b==tb) {
+	                                a = 0;
+	                            }
+	                            dest[offset++] = Color.argb(a, r, g, b);
+	                        }
+	                    } else {
+	                        for(int i=1,n=curLine.length ; i<n ; i+=3) {
+	                        	dest[offset++] = Color.argb((byte)0xFF, curLine[i], curLine[i+1], curLine[i+2]);
+	                        }
+	                    }
                     }
                     break;
                 case COLOR_TRUEALPHA:
-                    switch (fmt) {
-                    case ABGR: copyRGBAtoABGR(buffer, curLine); break;
-                    case RGBA: copy(buffer, curLine); break;
-                    case BGRA: copyRGBAtoBGRA(buffer, curLine); break;
-                    case RGB: copyRGBAtoRGB(buffer, curLine); break;
-                    default: throw new UnsupportedOperationException("Unsupported format for this image");
+                    {
+	                    for(int i=1,n=curLine.length ; i<n ; i+=4) {
+	                    	dest[offset++] = Color.argb(curLine[i+3], curLine[i], curLine[i+1], curLine[i+2]);
+	                    }
                     }
                     break;
                 case COLOR_GREYSCALE:
-                    switch (fmt) {
-                    case LUMINANCE:
-                    case ALPHA: copy(buffer, curLine); break;
-                    default: throw new UnsupportedOperationException("Unsupported format for this image");
+                    {
+	                    for(int i=1,n=curLine.length ; i<n ; i+=1) {
+	                    	dest[offset++] = curLine[i] * 0x00010101;
+	                    }
                     }
                     break;
                 case COLOR_GREYALPHA:
-                    switch (fmt) {
-                    case LUMINANCE_ALPHA: copy(buffer, curLine); break;
-                    default: throw new UnsupportedOperationException("Unsupported format for this image");
-                    }
+	                {
+	                    for(int i=1,n=curLine.length ; i<n ; i+=2) {
+	                    	dest[offset++] = curLine[i] * 0x00010101 + (curLine[i+1] << 6);
+	                    }
+	                }
                     break;
                 case COLOR_INDEXED:
-                    switch(bitdepth) {
-                        case 8: palLine = curLine; break;
-                        case 4: expand4(curLine, palLine); break;
-                        case 2: expand2(curLine, palLine); break;
-                        case 1: expand1(curLine, palLine); break;
-                        default: throw new UnsupportedOperationException("Unsupported bitdepth for this image");
-                    }
-                    switch (fmt) {
-                    case ABGR: copyPALtoABGR(buffer, palLine); break;
-                    case RGBA: copyPALtoRGBA(buffer, palLine); break;
-                    case BGRA: copyPALtoBGRA(buffer, palLine); break;
-                    default: throw new UnsupportedOperationException("Unsupported format for this image");
-                    }
+                	{
+	                    switch(bitdepth) {
+	                        case 8: palLine = curLine; break;
+	                        case 4: expand4(curLine, palLine); break;
+	                        case 2: expand2(curLine, palLine); break;
+	                        case 1: expand1(curLine, palLine); break;
+	                        default: throw new UnsupportedOperationException("Unsupported bitdepth for this image");
+	                    }
+	                    if(paletteA != null) {
+	                        for(int i=1,n=curLine.length ; i<n ; i+=1) {
+	                            int idx = curLine[i] & 255;
+	                            byte r = palette[idx*3 + 0];
+	                            byte g = palette[idx*3 + 1];
+	                            byte b = palette[idx*3 + 2];
+	                            byte a = paletteA[idx];
+	                            dest[offset++] = Color.argb(a, r, g, b);
+	                        }
+	                    } else {
+	                        for(int i=1,n=curLine.length ; i<n ; i+=1) {
+	                            int idx = curLine[i] & 255;
+	                            byte r = palette[idx*3 + 0];
+	                            byte g = palette[idx*3 + 1];
+	                            byte b = palette[idx*3 + 2];
+	                            byte a = (byte)0xFF;
+	                            dest[offset++] = Color.argb(a, r, g, b);
+	                        }
+	                    }
+                	}
                     break;
                 default:
                     throw new UnsupportedOperationException("Not yet implemented");
@@ -305,183 +352,7 @@ public class PngDecoder {
         } finally {
             inflater.end();
         }
-    }
-
-    /**
-     * Decodes the image into the specified buffer. The last line is placed at
-     * the current position. After decode the buffer position is at the end of
-     * the first line.
-     *
-     * @param buffer the buffer
-     * @param stride the stride in bytes from start of a line to start of the next line, must be positive.
-     * @param fmt the target format into which the image should be decoded.
-     * @throws IOException if a read or data error occurred
-     * @throws IllegalArgumentException if the start position of a line falls outside the buffer
-     * @throws UnsupportedOperationException if the image can't be decoded into the desired format
-     */
-    public void decodeFlipped(ByteBuffer buffer, int stride, Format fmt) throws IOException {
-        if(stride <= 0) {
-            throw new IllegalArgumentException("stride");
-        }
-        int pos = buffer.position();
-        int posDelta = (height-1) * stride;
-        buffer.position(pos + posDelta);
-        decode(buffer, -stride, fmt);
-        buffer.position(buffer.position() + posDelta);
-    }
-    
-    private void copy(ByteBuffer buffer, byte[] curLine) {
-        buffer.put(curLine, 1, curLine.length-1);
-    }
-
-    private void copyRGBtoABGR(ByteBuffer buffer, byte[] curLine) {
-        if(transPixel != null) {
-            byte tr = transPixel[1];
-            byte tg = transPixel[3];
-            byte tb = transPixel[5];
-            for(int i=1,n=curLine.length ; i<n ; i+=3) {
-                byte r = curLine[i];
-                byte g = curLine[i+1];
-                byte b = curLine[i+2];
-                byte a = (byte)0xFF;
-                if(r==tr && g==tg && b==tb) {
-                    a = 0;
-                }
-                buffer.put(a).put(b).put(g).put(r);
-            }
-        } else {
-            for(int i=1,n=curLine.length ; i<n ; i+=3) {
-                buffer.put((byte)0xFF).put(curLine[i+2]).put(curLine[i+1]).put(curLine[i]);
-            }
-        }
-    }
-
-    private void copyRGBtoRGBA(ByteBuffer buffer, byte[] curLine) {
-        if(transPixel != null) {
-            byte tr = transPixel[1];
-            byte tg = transPixel[3];
-            byte tb = transPixel[5];
-            for(int i=1,n=curLine.length ; i<n ; i+=3) {
-                byte r = curLine[i];
-                byte g = curLine[i+1];
-                byte b = curLine[i+2];
-                byte a = (byte)0xFF;
-                if(r==tr && g==tg && b==tb) {
-                    a = 0;
-                }
-                buffer.put(r).put(g).put(b).put(a);
-            }
-        } else {
-            for(int i=1,n=curLine.length ; i<n ; i+=3) {
-                buffer.put(curLine[i]).put(curLine[i+1]).put(curLine[i+2]).put((byte)0xFF);
-            }
-        }
-    }
-
-    private void copyRGBtoBGRA(ByteBuffer buffer, byte[] curLine) {
-        if(transPixel != null) {
-            byte tr = transPixel[1];
-            byte tg = transPixel[3];
-            byte tb = transPixel[5];
-            for(int i=1,n=curLine.length ; i<n ; i+=3) {
-                byte r = curLine[i];
-                byte g = curLine[i+1];
-                byte b = curLine[i+2];
-                byte a = (byte)0xFF;
-                if(r==tr && g==tg && b==tb) {
-                    a = 0;
-                }
-                buffer.put(b).put(g).put(r).put(a);
-            }
-        } else {
-            for(int i=1,n=curLine.length ; i<n ; i+=3) {
-                buffer.put(curLine[i+2]).put(curLine[i+1]).put(curLine[i]).put((byte)0xFF);
-            }
-        }
-    }
-
-    private void copyRGBAtoABGR(ByteBuffer buffer, byte[] curLine) {
-        for(int i=1,n=curLine.length ; i<n ; i+=4) {
-            buffer.put(curLine[i+3]).put(curLine[i+2]).put(curLine[i+1]).put(curLine[i]);
-        }
-    }
-
-    private void copyRGBAtoBGRA(ByteBuffer buffer, byte[] curLine) {
-        for(int i=1,n=curLine.length ; i<n ; i+=4) {
-            buffer.put(curLine[i+2]).put(curLine[i+1]).put(curLine[i]).put(curLine[i+3]);
-        }
-    }
-
-    private void copyRGBAtoRGB(ByteBuffer buffer, byte[] curLine) {
-        for(int i=1,n=curLine.length ; i<n ; i+=4) {
-            buffer.put(curLine[i]).put(curLine[i+1]).put(curLine[i+2]);
-        }
-    }
-
-    private void copyPALtoABGR(ByteBuffer buffer, byte[] curLine) {
-        if(paletteA != null) {
-            for(int i=1,n=curLine.length ; i<n ; i+=1) {
-                int idx = curLine[i] & 255;
-                byte r = palette[idx*3 + 0];
-                byte g = palette[idx*3 + 1];
-                byte b = palette[idx*3 + 2];
-                byte a = paletteA[idx];
-                buffer.put(a).put(b).put(g).put(r);
-            }
-        } else {
-            for(int i=1,n=curLine.length ; i<n ; i+=1) {
-                int idx = curLine[i] & 255;
-                byte r = palette[idx*3 + 0];
-                byte g = palette[idx*3 + 1];
-                byte b = palette[idx*3 + 2];
-                byte a = (byte)0xFF;
-                buffer.put(a).put(b).put(g).put(r);
-            }
-        }
-    }
-
-    private void copyPALtoRGBA(ByteBuffer buffer, byte[] curLine) {
-        if(paletteA != null) {
-            for(int i=1,n=curLine.length ; i<n ; i+=1) {
-                int idx = curLine[i] & 255;
-                byte r = palette[idx*3 + 0];
-                byte g = palette[idx*3 + 1];
-                byte b = palette[idx*3 + 2];
-                byte a = paletteA[idx];
-                buffer.put(r).put(g).put(b).put(a);
-            }
-        } else {
-            for(int i=1,n=curLine.length ; i<n ; i+=1) {
-                int idx = curLine[i] & 255;
-                byte r = palette[idx*3 + 0];
-                byte g = palette[idx*3 + 1];
-                byte b = palette[idx*3 + 2];
-                byte a = (byte)0xFF;
-                buffer.put(r).put(g).put(b).put(a);
-            }
-        }
-    }
-
-    private void copyPALtoBGRA(ByteBuffer buffer, byte[] curLine) {
-        if(paletteA != null) {
-            for(int i=1,n=curLine.length ; i<n ; i+=1) {
-                int idx = curLine[i] & 255;
-                byte r = palette[idx*3 + 0];
-                byte g = palette[idx*3 + 1];
-                byte b = palette[idx*3 + 2];
-                byte a = paletteA[idx];
-                buffer.put(b).put(g).put(r).put(a);
-            }
-        } else {
-            for(int i=1,n=curLine.length ; i<n ; i+=1) {
-                int idx = curLine[i] & 255;
-                byte r = palette[idx*3 + 0];
-                byte g = palette[idx*3 + 1];
-                byte b = palette[idx*3 + 2];
-                byte a = (byte)0xFF;
-                buffer.put(b).put(g).put(r).put(a);
-            }
-        }
+        return Bitmap.createBitmap(dest, width, height, Config.ARGB_8888);
     }
 
     private void expand4(byte[] src, byte[] dst) {
@@ -686,6 +557,38 @@ public class PngDecoder {
         }
     }
     
+    private void readacTL() throws IOException {
+        checkChunkLength(8);
+        readChunk(buffer, 0, 8);
+    	animated = true;
+    	numFrames = readInt(buffer, 0);
+    	numPlays = readInt(buffer, 4);
+    }
+
+
+    private void readfcTL() throws IOException {
+        checkChunkLength(26);
+        readChunk(buffer, 0, 26);
+        int sequence_number = readInt(buffer, 0);
+    	int ch_width        = readInt(buffer, 4);
+    	int ch_height       = readInt(buffer, 8);
+    	int x_offset        = readInt(buffer, 12);
+    	int y_offset        = readInt(buffer, 16);
+    	int delay_num       = readShort(buffer, 20);
+    	int delay_den       = readShort(buffer, 22);
+    	int dispose_op      = buffer[24];
+    	int blend_op        = buffer[25];
+    }
+    
+    private void readIEND() throws IOException {
+    }
+    
+    private void readfdAT() throws IOException {
+        checkChunkLength(26);
+        readChunk(buffer, 0, 4);
+        int sequence_number = readInt(buffer, 0);
+    }
+    
     private void closeChunk() throws IOException {
         if(chunkRemaining > 0) {
             // just skip the rest and the CRC
@@ -785,6 +688,12 @@ public class PngDecoder {
                 ((buffer[offset+1] & 255) << 16) |
                 ((buffer[offset+2] & 255) <<  8) |
                 ((buffer[offset+3] & 255)      );
+    }
+
+    private int readShort(byte[] buffer, int offset) {
+        return 
+                ((buffer[offset  ]      ) << 8) |
+                ((buffer[offset+1] & 255)      );
     }
 
     private void skip(long amount) throws IOException {

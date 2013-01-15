@@ -7,7 +7,6 @@ import java.io.InputStream;
 import java.io.FileInputStream;
 import android.graphics.Color;
 import android.graphics.Paint;
-import java.nio.*;
 
 
 public class ApngAnimation extends Animation
@@ -31,13 +30,7 @@ public class ApngAnimation extends Animation
 			Log.e(TAG, "init 1");
 			PngDecoder decoder = new PngDecoder(is);
 			Log.e(TAG, "init width = " +decoder.getWidth()+" height = " + decoder.getHeight());
-			ByteBuffer bb = ByteBuffer.allocate(decoder.getWidth()*decoder.getHeight()*3);
-			decoder.decode(bb, 0, PngDecoder.Format.RGB);
-			bitmap = Bitmap.createBitmap(decoder.getWidth(), decoder.getHeight(), Bitmap.Config.RGB_565 );
-			Log.e(TAG, "init position = "+bb.position());
-			bb.position(0);
-			bitmap.copyPixelsFromBuffer(bb);
-			//maxCount = gifDecoder.getFrameCount();
+			bitmap = decoder.decodeBitmap();
 			Log.e(TAG, "init bitmap_w="+bitmap.getWidth()+" bitmap_h="+bitmap.getHeight());
         }
         catch (Exception e) {
