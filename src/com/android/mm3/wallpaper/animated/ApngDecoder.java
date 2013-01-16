@@ -76,8 +76,37 @@ public class ApngDecoder extends Decoder{
     private boolean animated = false;
     private int numFrames = 0;
     private int numPlays = 0;
-    private Vector<Bitmap> frames;
-    protected int delay = 0; // delay in milliseconds
+    private Vector<ApngFrame> frames;
+    private int delay = 0; // delay in milliseconds
+    private int sequence_number = 0;
+    private int ch_width = 0;
+    private int ch_height = 0;
+    private int x_offset = 0;
+    private int y_offset = 0;
+    private int delay_num = 0;
+    private int delay_den = 0;
+    private int dispose_op = 0;
+    private int blend_op = 0;
+    
+    private static class ApngFrame {
+        public ApngFrame(Bitmap image) {
+                this.image = image;
+        }
+
+        public Bitmap image;
+        public int sequence_number = 0;
+        public int data_sequence_number = 0;
+        public int ch_width = 0;
+        public int ch_height = 0;
+        public int x_offset = 0;
+        public int y_offset = 0;
+        public int delay_num = 0;
+        public int delay_den = 0;
+        public int dispose_op = 0;
+        public int blend_op = 0;
+}
+
+    
     
     private int width;
     private int height;
@@ -209,11 +238,14 @@ public class ApngDecoder extends Decoder{
      * @return delay in milliseconds
      */
     public int getDelay(int n) {
-            delay = -1;
-            if ((n >= 0) && (n < numFrames)) {
-                    delay = 500;
-            }
-            return delay;
+    	delay = -1;
+    	if ((n >= 0) && (n < numFrames)) {
+    		int den = frames.elementAt(n).delay_den;
+    		int num = frames.elementAt(n).delay_num;
+    		den = (den==0) ? 100 : den;
+    		delay = (num==0) ? 50 : num * 1000 / den;
+    	}
+    	return delay;
     }
 
     /**
@@ -243,7 +275,7 @@ public class ApngDecoder extends Decoder{
         if (numFrames <= 0)
                 return null;
         n = n % numFrames;
-        return frames.elementAt(n);
+        return frames.elementAt(n).image;
     }
 
 	
@@ -312,23 +344,23 @@ public class ApngDecoder extends Decoder{
      * @throws IllegalArgumentException if the start position of a line falls outside the buffer
      * @throws UnsupportedOperationException if the image can't be decoded into the desired format
      */
-    public Bitmap decodeBitmap() throws IOException {
-    	int[] dest = decodeChunk(IDAT);
-    	return Bitmap.createBitmap(dest, width, height, Config.ARGB_8888);
-    }
+//    public Bitmap decodeBitmap() throws IOException {
+//    	int[] dest = decodeChunk(IDAT, width, height);
+//    	return Bitmap.createBitmap(dest, width, height, Config.ARGB_8888);
+//    }
     
-    public int[] decodeChunk(int type) throws IOException {
-        final int lineSize = ((width * bitdepth + 7) / 8) * bytesPerPixel;
+    public int[] decodeChunk(int type, int lwidth, int lheight) throws IOException {
+        final int lineSize = ((lwidth * bitdepth + 7) / 8) * bytesPerPixel;
         int offset = 0;
         byte[] curLine = new byte[lineSize+1];
         byte[] prevLine = new byte[lineSize+1];
-        byte[] palLine = (bitdepth < 8) ? new byte[width+1] : null;
+        byte[] palLine = (bitdepth < 8) ? new byte[lwidth+1] : null;
         
-        int[] dest = new int[width * height];
+        int[] dest = new int[lwidth * lheight];
         
         final Inflater inflater = new Inflater();
         try {
-            for(int y=0 ; y<height ; y++) {
+            for(int y=0 ; y<lheight ; y++) {
                 readChunkUnzip(inflater, curLine, 0, curLine.length, type);
                 unfilter(curLine, prevLine);
 
@@ -635,34 +667,56 @@ public class ApngDecoder extends Decoder{
     private void readfcTL() throws IOException {
         checkChunkLength(26);
         readChunk(buffer, 0, 26);
-        int sequence_number = readInt(buffer, 0);
-    	int ch_width        = readInt(buffer, 4);
-    	int ch_height       = readInt(buffer, 8);
-    	int x_offset        = readInt(buffer, 12);
-    	int y_offset        = readInt(buffer, 16);
-    	int delay_num       = readShort(buffer, 20);
-    	int delay_den       = readShort(buffer, 22);
-    	int dispose_op      = buffer[24];
-    	int blend_op        = buffer[25];
+        sequence_number = readInt(buffer, 0);
+    	ch_width        = readInt(buffer, 4);
+    	ch_height       = readInt(buffer, 8);
+    	x_offset        = readInt(buffer, 12);
+    	y_offset        = readInt(buffer, 16);
+    	delay_num       = readShort(buffer, 20);
+    	delay_den       = readShort(buffer, 22);
+    	dispose_op      = buffer[24];
+    	blend_op        = buffer[25];
     }
 
     private void readfdAT() throws IOException {
         readChunk(buffer, 0, 4);
-        int sequence_number = readInt(buffer, 0);
-    	int[] dest = decodeChunk(fdAT);
-    	Bitmap img = Bitmap.createBitmap(dest, width, height, Config.ARGB_8888);
-    	frames.add(img);
+        int data_sequence_number = readInt(buffer, 0);
+    	int[] dest = decodeChunk(fdAT, ch_width, ch_height);
+    	Bitmap img = Bitmap.createBitmap(dest, ch_width, ch_height, Config.ARGB_8888);
+    	ApngFrame f = new ApngFrame(img);
+    	f.sequence_number      = sequence_number;
+    	f.data_sequence_number = data_sequence_number;
+    	f.ch_width   = ch_width;
+    	f.ch_height  = ch_height;
+    	f.x_offset   = x_offset;
+    	f.y_offset   = y_offset;
+    	f.delay_num  = delay_num;
+    	f.delay_den  = delay_den;
+    	f.dispose_op = dispose_op;
+    	f.blend_op   = blend_op;
+    	frames.add(f);
     }
     
     private void readIDAT() throws IOException {
-    	int[] dest = decodeChunk(IDAT);
+    	int[] dest = decodeChunk(IDAT, width, height);
     	Bitmap img = Bitmap.createBitmap(dest, width, height, Config.ARGB_8888);
     	if(frames != null) {
     		frames.clear();
     	} else {
-    		frames = new Vector<Bitmap>();
+    		frames = new Vector<ApngFrame>();
     	}
-    	frames.add(img);
+    	ApngFrame f = new ApngFrame(img);
+    	f.sequence_number      = sequence_number;
+    	f.data_sequence_number = 0;
+    	f.ch_width   = ch_width;
+    	f.ch_height  = ch_height;
+    	f.x_offset   = x_offset;
+    	f.y_offset   = y_offset;
+    	f.delay_num  = delay_num;
+    	f.delay_den  = delay_den;
+    	f.dispose_op = dispose_op;
+    	f.blend_op   = blend_op;
+    	frames.add(f);
     }
     
     private void readIEND() throws IOException {
