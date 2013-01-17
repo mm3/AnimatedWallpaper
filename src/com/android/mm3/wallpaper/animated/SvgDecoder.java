@@ -1251,16 +1251,19 @@ public class SvgDecoder extends Decoder {
                 if (gradient != null) {
                     float offset = getFloatAttr("offset", atts);
                     String styles = getStringAttr("style", atts);
-                    StyleSet styleSet = new StyleSet(styles);
-                    String colorStyle = styleSet.getStyle("stop-color");
-                    int color = getColor(colorStyle);
-                    String opacityStyle = styleSet.getStyle("stop-opacity");
-                    if (opacityStyle != null) {
-                        float alpha = Float.parseFloat(opacityStyle);
-                        int alphaInt = Math.round(255 * alpha);
-                        color |= (alphaInt << 24);
-                    } else {
-                        color |= 0xFF000000;
+                    int color = 0;
+                    if(styles!=null) {
+	                    StyleSet styleSet = new StyleSet(styles);
+	                    String colorStyle = styleSet.getStyle("stop-color");
+	                    color = getColor(colorStyle);
+	                    String opacityStyle = styleSet.getStyle("stop-opacity");
+	                    if (opacityStyle != null) {
+	                        float alpha = Float.parseFloat(opacityStyle);
+	                        int alphaInt = Math.round(255 * alpha);
+	                        color |= (alphaInt << 24);
+	                    } else {
+	                        color |= 0xFF000000;
+	                    }
                     }
                     gradient.positions.add(offset);
                     gradient.colors.add(color);

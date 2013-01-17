@@ -772,12 +772,16 @@ public class ApngDecoder extends Decoder{
     }
 
     private void refillInflater(Inflater inflater, int type) throws IOException {
+    	int offset = 0;
         while(chunkRemaining == 0) {
             closeChunk();
             openChunk(type);
+            if(type == fdAT) {
+                offset = 4;
+            }
         }
         int read = readChunk(buffer, 0, buffer.length);
-        inflater.setInput(buffer, 0, read);
+        inflater.setInput(buffer, offset, read-offset);
     }
     
     private void readChunkUnzip(Inflater inflater, byte[] buffer, int offset, int length, int type) throws IOException {
