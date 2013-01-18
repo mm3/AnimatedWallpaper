@@ -77,6 +77,7 @@ public class GifAnimation extends Animation
 		this.counter = 0;
 	}
 
+	@Override
 	public void getNextFrame(Canvas c) {
 		if(this.decoder == null) {
 			return;
@@ -101,15 +102,17 @@ public class GifAnimation extends Animation
 		
 	}
 	
+	@Override
 	public int getImageWidth(Canvas c) {
 		return (this.bitmap != null) ? this.bitmap.getWidth() : c.getWidth();
 	}
 	
+	@Override
 	public int getImageHeight(Canvas c) {
 		return (this.bitmap != null) ? this.bitmap.getHeight() : c.getHeight();
 	}
 
-	
+	@Override
 	public void drawImage(Canvas c, int left, int top, int right, int bottom, Paint paint) {
 		if(this.decoder == null) {
 			c.drawColor(Color.BLACK);
@@ -133,10 +136,12 @@ public class GifAnimation extends Animation
 		}
 	}
 
+	@Override
 	public void drawEnd(Canvas c) {
 		this.counter++;
 	}
 	
+	@Override
 	public int getDelay() 
 	{
 		if(this.decoder != null ) {

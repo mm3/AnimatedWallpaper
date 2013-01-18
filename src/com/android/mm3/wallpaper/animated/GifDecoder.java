@@ -109,6 +109,17 @@ public class GifDecoder extends Decoder{
                 return loopCount;
         }
 
+        @Override
+        public int getHeight() {
+            return height;
+        }
+
+        @Override
+        public int getWidth() {
+            return width;
+        }
+     
+        
         /**
          * Creates new frame image from current data (and previous frames as specified by their disposition codes).
          */

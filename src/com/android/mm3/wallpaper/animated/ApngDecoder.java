@@ -11,7 +11,9 @@ import java.util.zip.Inflater;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 
 /**
  * A PNGDecoder. The slick PNG decoder is based on this class :)
@@ -90,12 +92,11 @@ public class ApngDecoder extends Decoder{
     
     private static class ApngFrame {
         public ApngFrame(Bitmap image) {
-                this.image = image;
+        	this.image = image;
         }
 
         public Bitmap image;
-        public int sequence_number = 0;
-        public int data_sequence_number = 0;
+        public Bitmap prev_image;
         public int ch_width = 0;
         public int ch_height = 0;
         public int x_offset = 0;
@@ -117,10 +118,15 @@ public class ApngDecoder extends Decoder{
     private byte[] paletteA;
     private byte[] transPixel;
     
+    private Paint paint = new Paint();
+
+    
     public ApngDecoder(InputStream input) throws IOException {
         this.input = input;
         this.crc = new CRC32();
         this.buffer = new byte[4096];
+        this.paint.setAntiAlias(true);
+
         
         readFully(buffer, 0, SIGNATURE.length);
         if(!checkSignature(buffer)) {
@@ -163,10 +169,12 @@ public class ApngDecoder extends Decoder{
         }
     }
 
+    @Override
     public int getHeight() {
         return height;
     }
 
+    @Override
     public int getWidth() {
         return width;
     }
@@ -277,7 +285,21 @@ public class ApngDecoder extends Decoder{
         n = n % numFrames;
         return frames.elementAt(n).image;
     }
+    
+    
+    public int getFrameOffsetX(int n) {
+        if (numFrames <= 0)
+                return 0;
+        n = n % numFrames;
+        return frames.elementAt(n).x_offset;
+    }
 
+    public int getFrameOffsetY(int n) {
+        if (numFrames <= 0)
+                return 0;
+        n = n % numFrames;
+        return frames.elementAt(n).y_offset;
+    }
 	
 	/**
 	 * Gets the "Netscape" iteration count, if any. A count of 0 means repeat indefinitiely.
@@ -683,9 +705,33 @@ public class ApngDecoder extends Decoder{
         int data_sequence_number = readInt(buffer, 0);
     	int[] dest = decodeChunk(fdAT, ch_width, ch_height);
     	Bitmap img = Bitmap.createBitmap(dest, ch_width, ch_height, Config.ARGB_8888);
-    	ApngFrame f = new ApngFrame(img);
-    	f.sequence_number      = sequence_number;
-    	f.data_sequence_number = data_sequence_number;
+    	ApngFrame prev = frames.lastElement();
+    	Bitmap newimg = prev.image.copy(Config.ARGB_8888, true);
+    	if(dispose_op != 0 && dispose_op != 1 && dispose_op != 2) {
+    		throw new IOException("Incorrect frame dispose: " + Integer.toHexString(dispose_op));
+    	}
+    	if(blend_op == 0) {
+    		if(dispose_op == 0) {
+    			
+    		} else if(dispose_op == 1) {
+    			
+    		} else if(dispose_op == 2) {
+    			
+    		}
+//    		Canvas c = new Canvas(newimg);
+//    		c.drawBitmap(img, x_offset, y_offset, this.paint);
+    		newimg.setPixels(dest, 0, ch_width, x_offset, y_offset, ch_width, ch_height);
+    	} else if(blend_op == 1){
+    		Canvas c = new Canvas(newimg);
+    		if(dispose_op == 0) {
+    		} else if(dispose_op == 1) {
+    		} else if(dispose_op == 2) {
+    		}
+    		c.drawBitmap(img, x_offset, y_offset, this.paint);
+    	} else {
+    		throw new IOException("Incorrect frame blend: " + Integer.toHexString(blend_op));
+    	}
+    	ApngFrame f = new ApngFrame(newimg);
     	f.ch_width   = ch_width;
     	f.ch_height  = ch_height;
     	f.x_offset   = x_offset;
@@ -706,8 +752,6 @@ public class ApngDecoder extends Decoder{
     		frames = new Vector<ApngFrame>();
     	}
     	ApngFrame f = new ApngFrame(img);
-    	f.sequence_number      = sequence_number;
-    	f.data_sequence_number = 0;
     	f.ch_width   = ch_width;
     	f.ch_height  = ch_height;
     	f.x_offset   = x_offset;

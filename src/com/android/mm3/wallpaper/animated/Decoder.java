@@ -21,4 +21,13 @@ public class Decoder
 	public int getDelay(int n) {
 		return 0;
 	}
+	
+    public int getHeight() {
+        return 0;
+    }
+
+    public int getWidth() {
+        return 0;
+    }
+
 }

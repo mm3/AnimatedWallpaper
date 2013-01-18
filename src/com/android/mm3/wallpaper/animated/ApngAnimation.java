@@ -1,6 +1,7 @@
 package com.android.mm3.wallpaper.animated;
 
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.util.Log;
 import java.io.InputStream;
 
@@ -26,4 +27,17 @@ public class ApngAnimation extends GifAnimation
         }
         return null;
 	}
+	
+	@Override
+	public int getImageWidth(Canvas c) {
+		return (this.decoder != null) ? this.decoder.getWidth() : c.getWidth();
+	}
+	
+	@Override
+	public int getImageHeight(Canvas c) {
+		return (this.decoder != null) ? this.decoder.getHeight() : c.getHeight();
+	}
+	
+	
+
 }
