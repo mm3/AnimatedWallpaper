@@ -31,9 +31,12 @@ public class SvgAnimation extends Animation
 		InputStream is = null;
         try {
 			
-            is = new FileInputStream(s);
+            //is = new FileInputStream(s);
 			decoder = new SvgDecoder();
-			decoder.read(is, width, height);
+			//decoder.read(is, width, height);
+			//is.close();
+            is = new FileInputStream(s);
+			decoder.parse(is);
 			maxCount = decoder.getFrameCount();
         }
         catch (Exception e) {
@@ -57,8 +60,9 @@ public class SvgAnimation extends Animation
 			counter = 0;
 		}
 		c.drawColor(Color.TRANSPARENT);
-		picture = decoder.getFramePicture(counter);
-		picture.draw(c);
+		//picture = decoder.getFramePicture(counter);
+		//picture.draw(c);
+		decoder.draw(c);
 		counter++;
 	}
 	

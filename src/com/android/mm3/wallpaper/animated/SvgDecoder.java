@@ -3,15 +3,22 @@ package com.android.mm3.wallpaper.animated;
 import android.graphics.*;
 import android.graphics.drawable.PictureDrawable;
 import android.util.Log;
+import android.util.Xml;
+
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
 
 import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
+
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashSet;
 import java.util.Vector;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,11 +26,752 @@ import java.util.HashMap;
 
 public class SvgDecoder extends Decoder {
 
-    static final String TAG = "SVGAndroid";
+	public static final String TAG = "SvgDecoder";
 	
-	protected Vector<SVG> frames = new Vector<SVG>(); // frames read from current file
+	protected Vector<SVGOld> frames = new Vector<SVGOld>(); // frames read from current file
 	protected int frameCount = 1;
 	
+	
+	protected SVG frame = new SVG();
+	
+	// structural elements
+	public static final String TAG_SVG                   = "svg";
+	public static final String TAG_SVG_G                 = "g";
+	public static final String TAG_SVG_DEFS              = "defs";
+	public static final String TAG_SVG_SYMBOL            = "symbol";
+	public static final String TAG_SVG_USE               = "use";
+	public static final String TAG_SVG_A                 = "a";
+	public static final String TAG_SVG_GLYPH             = "glyph";
+
+	// descriptive elements
+	public static final String TAG_SVG_TITLE             = "title";
+	public static final String TAG_SVG_DESC              = "desc";
+	public static final String TAG_SVG_METADATA          = "metadata";
+	
+	// shape elements
+	public static final String TAG_SVG_CIRCLE            = "circle";
+	public static final String TAG_SVG_PATH              = "path";
+	public static final String TAG_SVG_ELLIPSE           = "ellipse";
+	public static final String TAG_SVG_LINE              = "line";
+	public static final String TAG_SVG_POLYGON           = "polygon";
+	public static final String TAG_SVG_POLYLINE          = "polyline";
+	public static final String TAG_SVG_RECT              = "rect";
+	
+	// gradient elements
+	public static final String TAG_SVG_LINEAR_GRADIENT   = "linearGradient";
+	public static final String TAG_SVG_RADIAL_GRADIENT   = "radialGradient";
+	
+	// animation elements
+	public static final String TAG_SVG_ANIMATE           = "animate";
+	public static final String TAG_SVG_ANIMATE_COLOR     = "animateColor";
+	public static final String TAG_SVG_ANIMATE_MONITOR   = "animateMotion";
+	public static final String TAG_SVG_ANIMATE_TRANSFORM = "animateTransform";
+	public static final String TAG_SVG_SET               = "set";
+	
+	// other
+	public static final String TAG_SVG_STOP              = "stop";
+	public static final String TAG_SVG_ALT_GLYPH_DEF     = "altGlyphDef";
+	public static final String TAG_SVG_COLOR_PROFILE     = "color-profile";
+	public static final String TAG_SVG_CURSOR            = "cursor";
+	public static final String TAG_SVG_FONT              = "font";
+	public static final String TAG_SVG_FONT_FACE         = "font-face";
+	public static final String TAG_SVG_FOREIGN_OBJECT    = "foreignObject";
+	public static final String TAG_SVG_IMAGE             = "image";
+	public static final String TAG_SVG_MARKER            = "marker";
+	public static final String TAG_SVG_MASK              = "mask";
+	public static final String TAG_SVG_PATTERN           = "pattern";
+	public static final String TAG_SVG_SCRIPT            = "script";
+	public static final String TAG_SVG_STYLE             = "style";
+	public static final String TAG_SVG_SWITCH            = "switch";
+	public static final String TAG_SVG_VIEW              = "view";
+	public static final String TAG_SVG_MISSING_GLYPH     = "missing-glyph";
+
+	// filter primitive element
+	public static final String TAG_SVG_FILTER            = "filter";
+	public static final String TAG_SVG_FE_BLEND          = "feBlend";
+	public static final String TAG_SVG_FE_COLOR_MATRIX   = "feColorMatrix";
+	public static final String TAG_SVG_FE_COMPOSITE      = "feComposite";
+	public static final String TAG_SVG_FE_FLOOD          = "feFlood";
+	public static final String TAG_SVG_FE_GAUSSIAN_BLUR  = "feGaussianBlur";
+	public static final String TAG_SVG_FE_IMAGE          = "feImage";
+	public static final String TAG_SVG_FE_MERGE          = "feMerge";
+	public static final String TAG_SVG_FE_MORPHOLOGY     = "feMorphology";
+	public static final String TAG_SVG_FE_OFFSET         = "feOffset";
+	public static final String TAG_SVG_FE_TITLE          = "feTile";
+	public static final String TAG_SVG_FE_TURBULENCE     = "feTurbulence";
+	public static final String TAG_SVG_FE_DISTANT_LIGHT  = "feDistantLight";
+	public static final String TAG_SVG_FE_POINT_LIGHT    = "fePointLight";
+	public static final String TAG_SVG_FE_SPOT_LIGHT     = "feSpotLight";
+	public static final String TAG_SVG_FE_COMPONENT_TRANSFER = "feComponentTransfer";
+	public static final String TAG_SVG_FE_CONVOLVE_MATRIX    = "feConvolveMatrix";
+	public static final String TAG_SVG_FE_DEFFUSE_LIGHTING   = "feDiffuseLighting";
+	public static final String TAG_SVG_FE_DISPLACEMENT_MAP   = "feDisplacementMap";
+	public static final String TAG_SVG_FE_SPECULAR_LIGHTING  = "feSpecularLighting";
+	
+	// text content element
+	public static final String TAG_SVG_TEXT              = "text";
+	public static final String TAG_SVG_ALT_GLYPH         = "altGlyph";
+	public static final String TAG_SVG_TEXT_PATH         = "textPath";
+	public static final String TAG_SVG_TREF              = "tref";
+	public static final String TAG_SVG_TSPAN             = "tspan";
+
+	public static final String ns = null;
+	
+	
+	protected static final HashSet<String> tags = new HashSet<String>();
+	static {
+		tags.add(SvgDecoder.TAG_SVG);
+		tags.add(SvgDecoder.TAG_SVG_G);
+		tags.add(SvgDecoder.TAG_SVG_DEFS);
+		tags.add(SvgDecoder.TAG_SVG_SYMBOL);
+		tags.add(SvgDecoder.TAG_SVG_USE);
+		tags.add(SvgDecoder.TAG_SVG_A);
+		tags.add(SvgDecoder.TAG_SVG_GLYPH);
+		tags.add(SvgDecoder.TAG_SVG_TITLE);
+		tags.add(SvgDecoder.TAG_SVG_DESC);
+		tags.add(SvgDecoder.TAG_SVG_METADATA);
+		tags.add(SvgDecoder.TAG_SVG_CIRCLE);
+		tags.add(SvgDecoder.TAG_SVG_PATH);
+		tags.add(SvgDecoder.TAG_SVG_ELLIPSE);
+		tags.add(SvgDecoder.TAG_SVG_LINE);
+		tags.add(SvgDecoder.TAG_SVG_POLYGON);
+		tags.add(SvgDecoder.TAG_SVG_POLYLINE);
+		tags.add(SvgDecoder.TAG_SVG_RECT);
+		tags.add(SvgDecoder.TAG_SVG_LINEAR_GRADIENT);
+		tags.add(SvgDecoder.TAG_SVG_RADIAL_GRADIENT);
+		tags.add(SvgDecoder.TAG_SVG_ANIMATE);
+		tags.add(SvgDecoder.TAG_SVG_ANIMATE_COLOR);
+		tags.add(SvgDecoder.TAG_SVG_ANIMATE_MONITOR);
+		tags.add(SvgDecoder.TAG_SVG_ANIMATE_TRANSFORM);
+		tags.add(SvgDecoder.TAG_SVG_SET);
+		tags.add(SvgDecoder.TAG_SVG_ALT_GLYPH_DEF);
+		tags.add(SvgDecoder.TAG_SVG_COLOR_PROFILE);
+		tags.add(SvgDecoder.TAG_SVG_CURSOR);
+		tags.add(SvgDecoder.TAG_SVG_FONT);
+		tags.add(SvgDecoder.TAG_SVG_FONT_FACE);
+		tags.add(SvgDecoder.TAG_SVG_FOREIGN_OBJECT);
+		tags.add(SvgDecoder.TAG_SVG_IMAGE);
+		tags.add(SvgDecoder.TAG_SVG_MARKER);
+		tags.add(SvgDecoder.TAG_SVG_MASK);
+		tags.add(SvgDecoder.TAG_SVG_PATTERN);
+		tags.add(SvgDecoder.TAG_SVG_SCRIPT);
+		tags.add(SvgDecoder.TAG_SVG_STYLE);
+		tags.add(SvgDecoder.TAG_SVG_SWITCH);
+		tags.add(SvgDecoder.TAG_SVG_VIEW);
+		tags.add(SvgDecoder.TAG_SVG_MISSING_GLYPH);
+		tags.add(SvgDecoder.TAG_SVG_FILTER);
+		tags.add(SvgDecoder.TAG_SVG_FE_BLEND);
+		tags.add(SvgDecoder.TAG_SVG_FE_COLOR_MATRIX);
+		tags.add(SvgDecoder.TAG_SVG_FE_COMPOSITE);
+		tags.add(SvgDecoder.TAG_SVG_FE_FLOOD);
+		tags.add(SvgDecoder.TAG_SVG_FE_GAUSSIAN_BLUR);
+		tags.add(SvgDecoder.TAG_SVG_FE_IMAGE);
+		tags.add(SvgDecoder.TAG_SVG_FE_MERGE);
+		tags.add(SvgDecoder.TAG_SVG_FE_MORPHOLOGY);
+		tags.add(SvgDecoder.TAG_SVG_FE_OFFSET);
+		tags.add(SvgDecoder.TAG_SVG_FE_TITLE);
+		tags.add(SvgDecoder.TAG_SVG_FE_TURBULENCE);
+		tags.add(SvgDecoder.TAG_SVG_FE_DISTANT_LIGHT);
+		tags.add(SvgDecoder.TAG_SVG_FE_POINT_LIGHT);
+		tags.add(SvgDecoder.TAG_SVG_FE_SPOT_LIGHT);
+		tags.add(SvgDecoder.TAG_SVG_FE_COMPONENT_TRANSFER);
+		tags.add(SvgDecoder.TAG_SVG_FE_CONVOLVE_MATRIX);
+		tags.add(SvgDecoder.TAG_SVG_FE_DEFFUSE_LIGHTING);
+		tags.add(SvgDecoder.TAG_SVG_FE_DISPLACEMENT_MAP);
+		tags.add(SvgDecoder.TAG_SVG_FE_SPECULAR_LIGHTING);
+		tags.add(SvgDecoder.TAG_SVG_TEXT);
+		tags.add(SvgDecoder.TAG_SVG_ALT_GLYPH);
+		tags.add(SvgDecoder.TAG_SVG_TEXT_PATH);
+		tags.add(SvgDecoder.TAG_SVG_TREF);
+		tags.add(SvgDecoder.TAG_SVG_TSPAN);
+		tags.add(SvgDecoder.TAG_SVG_STOP);
+	}
+	
+    protected boolean isValidTag(String tag) {
+		return tags.contains(tag);
+	}
+    
+    public void parse(InputStream in) {
+        try {
+            XmlPullParser parser = Xml.newPullParser();
+            parser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false);
+            parser.setInput(in, null);
+            parser.nextTag();
+            parse(parser);
+            frame.init();
+        } catch (Exception e){
+        	Log.e(TAG, e.getMessage());
+        } finally {
+            try {
+				in.close();
+			} catch (Exception e) {
+				Log.e(TAG, e.getMessage());
+			}
+        }
+    }
+    
+    public void draw(Canvas c) {
+    	frame.draw(c);
+    }
+
+    private void parse(XmlPullParser parser) throws XmlPullParserException, IOException {
+    	parseElements(SvgDecoder.TAG_SVG, frame, parser);
+    }
+    
+	protected void parseTag(String tag, SVGElement element, XmlPullParser parser) throws XmlPullParserException, IOException {
+		SVGElement e = getElementByTag(tag);
+		e.setName(tag);
+		parseElements(tag, e, parser);
+		//e.setData(readText(parser));
+		element.addElement(e);
+		if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_G)) {
+		} else {
+			//skip(parser);
+		}
+	}
+    
+    private void skip(XmlPullParser parser) throws XmlPullParserException, IOException {
+        if (parser.getEventType() != XmlPullParser.START_TAG) {
+            throw new IllegalStateException();
+        }
+        int depth = 1;
+        while (depth != 0) {
+            switch (parser.next()) {
+            case XmlPullParser.END_TAG:
+                depth--;
+                break;
+            case XmlPullParser.START_TAG:
+                depth++;
+                break;
+            }
+        }
+    }
+ 
+    protected String readTagValue(String tag, XmlPullParser parser) throws IOException, XmlPullParserException {
+        parser.require(XmlPullParser.START_TAG, ns, tag);
+        String result = readText(parser);
+        parser.require(XmlPullParser.END_TAG, ns, tag);
+        return result;
+    }
+
+    private String readText(XmlPullParser parser) throws IOException, XmlPullParserException {
+        String result = null;
+        if (parser.next() == XmlPullParser.TEXT) {
+            result = parser.getText();
+            parser.nextTag();
+        }
+        return result;
+    }
+    
+	protected void parseAttrs(SVGElement element, XmlPullParser parser) throws XmlPullParserException, IOException {
+    	int num = parser.getAttributeCount();
+    	for(int i = 0; i < num; i++) {
+    		String name = parser.getAttributeName(i);
+    		String value = parser.getAttributeValue(i);
+    		element.setAttr(name, value);
+    	}
+	}
+
+    private void parseElements(String tag, SVGElement element, XmlPullParser parser) throws XmlPullParserException, IOException {
+    	parser.require(XmlPullParser.START_TAG, SvgDecoder.ns, tag);
+    	parseAttrs(element, parser);
+        while (parser.next() != XmlPullParser.END_TAG) {
+            if (parser.getEventType() != XmlPullParser.START_TAG) {
+                continue;
+            }
+            String name = parser.getName();
+            // Starts by looking for the entry tag
+            if (isValidTag(name)) {
+            	parseTag(name, element, parser);
+            } else {
+                skip(parser);
+            }
+        }  
+    }
+    
+    private SVGElement getElementByTag(String tag) {
+    	SVGElement ret = null;
+		if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_G)) {
+			ret = new SVGTagG();
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_PATH)) {
+			ret = new SVGTagPath();
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_RECT)) {
+			ret = new SVGTagRect();
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_CIRCLE)) {
+			ret = new SVGTagCircle();
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_ELLIPSE)) {
+			ret = new SVGTagEllipse();
+		} else {
+			ret = new SVGElement();
+		}
+		return ret;
+    }
+    
+	public Shader getGradientById(String id) {
+		return frame.getGradientById(id);
+	}
+	
+	public int getWidth() {
+		return 0; //frame.getGradientById(id);
+	}
+
+	public int getHeight() {
+		return 0; //frame.getGradientById(id);
+	}
+
+    
+    public static Float strToFloat(String str) {
+        try {
+        	return Float.parseFloat(str);
+        } catch (Exception nfe) {
+            return null;
+        }
+    }
+
+    public static Float attrToFloat(String str, Float bound) {
+        try {
+        	boolean percent = false;
+        	String v = str;
+            if (v.endsWith("px")) {
+                v = v.substring(0, v.length() - 2);
+            }
+    		else if(v.endsWith("%")) {
+    			v = v.substring(0, v.length() - 1);
+    			percent = true;
+    		}
+            Float ret = Float.parseFloat(v);
+            if(percent) {
+            	ret = ret * bound / 100;
+            }
+
+        	return ret;
+        } catch (Exception nfe) {
+            return null;
+        }
+    }
+    
+    
+    public class SVGTagCircle extends SVGFigure{
+
+    	private Float centerX = null;
+    	private Float centerY = null;
+    	private Float radius = null;
+
+
+    	public SVGTagCircle() {
+			// "circle"
+			setName(SvgDecoder.TAG_SVG_CIRCLE);
+		}
+
+    	@Override
+    	public void init() {
+    		Float widthcanvas = (float)getWidth();
+    		Float heightcanvas = (float)getHeight();
+    		String centerXstr = getAttr("cx");
+    		this.centerX = SvgDecoder.attrToFloat(centerXstr, widthcanvas);
+    		String centerYstr = getAttr("cy");
+    		this.centerY = SvgDecoder.attrToFloat(centerYstr, heightcanvas);
+    		String radiusstr = getAttr("r");
+    		this.radius = SvgDecoder.attrToFloat(radiusstr, widthcanvas);
+			super.init();
+		}
+
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.centerX != null && this.centerY != null && this.radius != null) {
+				if(this.paintFill != null) {
+					c.drawCircle(this.centerX, this.centerY, this.radius, this.paintFill);
+				}
+				if(this.paintStroke != null) {
+					c.drawCircle(this.centerX, this.centerY, this.radius, this.paintStroke);
+				}
+			}
+    	}
+    }
+
+
+    public class SVGTagEllipse extends SVGFigure{
+
+    	private RectF rect = null;
+
+    	public SVGTagEllipse() {
+			// "ellipse"
+			setName(SvgDecoder.TAG_SVG_ELLIPSE);
+		}
+
+    	@Override
+    	public void init() {
+    		Float widthcanvas = (float)getWidth();
+    		Float heightcanvas = (float)getHeight();
+    		String centerXstr = getAttr("cx");
+    		Float centerX = SvgDecoder.attrToFloat(centerXstr, widthcanvas);
+    		String centerYstr = getAttr("cy");
+    		Float centerY = SvgDecoder.attrToFloat(centerYstr, heightcanvas);
+    		String radiusXstr = getAttr("rx");
+    		Float radiusX = SvgDecoder.attrToFloat(radiusXstr, widthcanvas);
+    		String radiusYstr = getAttr("ry");
+    		Float radiusY = SvgDecoder.attrToFloat(radiusYstr, heightcanvas);
+    		if (centerX != null && centerY != null && radiusX != null && radiusY != null) {
+    			this.rect = new RectF();
+    			this.rect.set(centerX - radiusX, centerY - radiusY, centerX + radiusX, centerY + radiusY);
+    		}
+
+			super.init();
+		}
+
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.rect != null) {
+				if(this.paintFill != null) {
+					c.drawOval(this.rect, this.paintFill);
+				}
+				if(this.paintStroke != null) {
+					c.drawOval(this.rect, this.paintStroke);
+				}
+			}
+    	}
+    }
+
+    
+    public class SVGTagRect extends SVGFigure{
+    	private Float x = null;
+    	private Float y = null;
+    	private Float width = null;
+    	private Float height = null;
+
+    	public SVGTagRect() {
+			// "rect"
+			setName(SvgDecoder.TAG_SVG_RECT);
+		}
+
+    	@Override
+    	public void init() {
+    		Float widthcanvas = (float)getWidth();
+    		Float heightcanvas = (float)getHeight();
+    		String strx = getAttr("x");
+            this.x = SvgDecoder.attrToFloat(strx, widthcanvas);
+            if (this.x == null) {
+            	this.x = 0f;
+            }
+    		String stry = getAttr("y");
+    		this.y = SvgDecoder.attrToFloat(stry, heightcanvas);
+            if (this.y == null) {
+            	this.y = 0f;
+            }
+    		String strwidth = getAttr("width");
+    		this.width = SvgDecoder.attrToFloat(strwidth, widthcanvas);
+    		String strheight = getAttr("height");
+    		this.height = SvgDecoder.attrToFloat(strheight, heightcanvas);
+			final String d = getAttr("d");
+			super.init();
+		}
+
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.paintFill != null) {
+				c.drawRect(this.x, this.y,
+						   this.x + this.width, 
+						   this.y + this.height, 
+						   this.paintFill);
+			}
+			if(this.paintStroke != null) {
+				c.drawRect(this.x, this.y, 
+						   this.x + this.width, 
+						   this.y + this.height, 
+						   this.paintFill);
+			}
+    	}
+    }
+
+    
+	
+    public class SVGTagPath extends SVGFigure{
+    	private Path path = null;
+
+    	public SVGTagPath() {
+			// "path"
+			setName(SvgDecoder.TAG_SVG_PATH);
+		}
+
+    	@Override
+    	public void init() {
+			final String d = getAttr("d");
+			if(d != null) {
+				this.path = doPath(d);
+			}
+			super.init();
+		}
+
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.path != null) {
+				if(this.paintFill != null) {
+					c.drawPath(this.path, this.paintFill);
+				}
+				if(this.paintStroke != null) {
+					c.drawPath(this.path, this.paintStroke);
+				}
+			}
+    	}
+    }
+
+    public class SVGFigure extends SVGElement{
+    	
+    	protected boolean display = true;
+
+    	protected Matrix matrix = null;
+    	protected Paint paintFill = null;
+    	protected Paint paintStroke = null;
+    	protected StyleSet styles = null;
+
+		@Override
+    	public void init() {
+			initParams();
+			super.init();
+		}
+		
+		protected void initParams() {
+            final String transform = getAttr("transform");
+            if(transform != null) {
+            	this.matrix = parseTransform(transform);
+            }
+            final String styleAttr = getAttr("style");
+            if(styleAttr != null) {
+            	this.styles = new StyleSet(styleAttr);
+            }
+            
+            if ("none".equals(getAttr("display"))) {
+            	this.display = false;
+            }
+            
+            this.paintFill = getFillPaint();
+            this.paintStroke = getStrokePaint();
+		}
+		
+		private String getStyleAttr(String name) {
+            if(this.styles != null) {
+            	return styles.getStyle(name);
+            } else {
+                return getAttr(name);
+            }
+		}
+		
+		protected Paint getFillPaint() {
+			Paint paint = new Paint();
+			paint.setAntiAlias(true);
+            
+            Shader shader = null;
+            String fillString = getStyleAttr("fill");
+            if (fillString != null && fillString.startsWith("url(#")) {
+                String id = fillString.substring("url(#".length(), fillString.length() - 1);
+                shader = getGradientById(id);
+            }
+            paint.setShader(shader);
+            paint.setStyle(Paint.Style.FILL);
+            if (fillString != null && !fillString.startsWith("#")) {
+                try {
+                	Integer color = Integer.parseInt(fillString.substring(1), 16);
+                    int c = (0xFFFFFF & color) | 0xFF000000;
+                    paint.setColor(c);
+                    String opacitystr = getStyleAttr("opacity");
+                    Float opacity = SvgDecoder.strToFloat(opacitystr);
+
+                    if (opacity == null) {
+                        opacity = SvgDecoder.strToFloat(getStyleAttr("fill-opacity"));
+                    }
+                    if (opacity == null) {
+                    	paint.setAlpha(255);
+                    } else {
+                    	paint.setAlpha((int) (255 * opacity));
+                    }
+                } catch (NumberFormatException nfe) {
+                	paint.setColor(0xFF000000);
+                }
+            }
+			return paint;
+		}
+
+		protected Paint getStrokePaint() {
+			Paint paint = new Paint();
+			paint.setAntiAlias(true);
+			Integer color = null;
+			String strokeString = getStyleAttr("stroke");
+            if (strokeString != null && !strokeString.startsWith("#")) {
+                try {
+                	color = Integer.parseInt(strokeString.substring(1), 16);
+                } catch (NumberFormatException nfe) {
+                }
+            }
+            if (color != null) {
+                int c = (0xFFFFFF & color) | 0xFF000000;
+                paint.setColor(c);
+                String opacitystr = getStyleAttr("opacity");
+                Float opacity = SvgDecoder.strToFloat(opacitystr);
+
+                if (opacity == null) {
+                    opacity = SvgDecoder.strToFloat(getStyleAttr("stroke-opacity"));
+                }
+                if (opacity == null) {
+                	paint.setAlpha(255);
+                } else {
+                	paint.setAlpha((int) (255 * opacity));
+                }
+                // Check for other stroke attributes
+                Float width = SvgDecoder.strToFloat(getStyleAttr("stroke-width"));
+                // Set defaults
+
+                if (width != null) {
+                    paint.setStrokeWidth(width);
+                }
+                String linecap = getStyleAttr("stroke-linecap");
+                if ("round".equals(linecap)) {
+                    paint.setStrokeCap(Paint.Cap.ROUND);
+                } else if ("square".equals(linecap)) {
+                    paint.setStrokeCap(Paint.Cap.SQUARE);
+                } else if ("butt".equals(linecap)) {
+                    paint.setStrokeCap(Paint.Cap.BUTT);
+                }
+                String linejoin = getStyleAttr("stroke-linejoin");
+                if ("miter".equals(linejoin)) {
+                    paint.setStrokeJoin(Paint.Join.MITER);
+                } else if ("round".equals(linejoin)) {
+                    paint.setStrokeJoin(Paint.Join.ROUND);
+                } else if ("bevel".equals(linejoin)) {
+                    paint.setStrokeJoin(Paint.Join.BEVEL);
+                }
+                paint.setStyle(Paint.Style.STROKE);
+                return paint;
+            }
+			return null;
+		}
+
+		
+		@Override
+    	public void draw(Canvas c) {
+			if(!this.display) {
+				return;
+			}
+
+			if(this.matrix != null) {
+                c.save();
+                c.concat(this.matrix);
+			}
+			
+			drawData(c);
+			
+			if(this.matrix != null) {
+                c.restore();
+			}
+			super.draw(c);
+		}
+
+    	public void drawData(Canvas c) {
+    	}
+
+		
+    }
+
+	
+    public class SVGTagG extends SVGElement{
+    	private boolean display = true;
+    	
+		public SVGTagG() {
+			setName(SvgDecoder.TAG_SVG_G);
+		}
+
+		@Override
+    	public void init() {
+            if ("none".equals(getAttr("display"))) {
+            	this.display = false;
+            }
+			
+			super.init();
+		}
+
+		@Override
+    	public void draw(Canvas c) {
+			if(!this.display) {
+				return;
+			}
+
+			super.draw(c);
+		}
+    }
+    
+    
+    public class SVG extends SVGElement{
+		public SVG() {
+			setName(SvgDecoder.TAG_SVG);
+		}
+		
+		public Shader getGradientById(String id) {
+			return null;
+		}
+		
+		@Override
+    	public void init() {
+			super.init();
+		}
+		
+		@Override
+    	public void draw(Canvas c) {
+			super.draw(c);
+		}
+    }
+    
+    public class SVGElement {
+    	private HashMap<String,String> attrs = new HashMap<String,String>();
+    	private Vector<SVGElement> elements = new Vector<SVGElement>();
+    	private String data = null;
+    	private String name = null;
+    	
+    	public String getAttr(String attr) {
+    		return this.attrs.get(attr);
+    	}
+    	
+    	public void setAttr(String attr, String value) {
+    		this.attrs.put(attr, value);
+    	}
+    	
+    	public void addElement(SVGElement element) {
+    		this.elements.add(element);
+    	}
+    	
+    	public void setData(String data) {
+    		this.data = data;
+    	}
+    	
+    	public String getData() {
+    		return this.data;
+    	}
+    	
+    	public void setName(String name) {
+    		this.name = name;
+    	}
+    	
+    	public String getName() {
+    		return this.name;
+    	}
+    	
+    	public void init() {
+    		int size = this.elements.size();
+    		for(int i = 0; i < size; i++) {
+    			this.elements.get(i).init();
+    		}
+    	}
+
+    	public void draw(Canvas c) {
+    		int size = this.elements.size();
+    		for(int i = 0; i < size; i++) {
+    			this.elements.get(i).draw(c);
+    		}
+    	}
+    }
+    
+    
+    
+
+
 
     public Path parsePath(String pathString) {
         return doPath(pathString);
@@ -42,7 +790,7 @@ public class SvgDecoder extends Decoder {
 		if (frameCount <= 0)
 			return null;
 		n = n % frameCount;
-		return ((SVG) frames.elementAt(n)).getPicture();
+		return ((SVGOld) frames.elementAt(n)).getPicture();
 	}
 
 	public int getFrameCount() {
@@ -54,7 +802,7 @@ public class SvgDecoder extends Decoder {
 	}
 	
 	
-    private SVG parse(InputStream in, Integer searchColor, Integer replaceColor, int width, int height, boolean whiteMode) throws SVGParseException {
+    private SVGOld parse(InputStream in, Integer searchColor, Integer replaceColor, int width, int height, boolean whiteMode) throws SVGParseException {
 		Log.w(TAG, "parse start");
         try {
 	        SAXParserFactory spf = SAXParserFactory.newInstance();
@@ -67,7 +815,7 @@ public class SvgDecoder extends Decoder {
 	        handler.setWhiteMode(whiteMode);
 	        xr.setContentHandler(handler);
  			xr.parse(is);
-	        SVG result = new SVG(picture, handler.bounds);
+ 			SVGOld result = new SVGOld(picture, handler.bounds);
 	        // Skip bounds if it was an empty pic
             if (!Float.isInfinite(handler.limits.top)) {
                 result.setLimits(handler.limits);
@@ -507,7 +1255,7 @@ public class SvgDecoder extends Decoder {
         }
     }
 	
-	public class SVG {
+	public class SVGOld {
 
 		private Picture picture;
 
@@ -515,7 +1263,7 @@ public class SvgDecoder extends Decoder {
 
 		private RectF limits = null;
 
-		SVG(Picture picture, RectF bounds) {
+		SVGOld(Picture picture, RectF bounds) {
 			this.picture = picture;
 			this.bounds = bounds;
 		}
