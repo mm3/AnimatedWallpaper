@@ -36,7 +36,9 @@ public class SvgAnimation extends Animation
 			//decoder.read(is, width, height);
 			//is.close();
             is = new FileInputStream(s);
+			decoder.setWidthHeight(width, height);
 			decoder.parse(is);
+			
 			maxCount = decoder.getFrameCount();
         }
         catch (Exception e) {

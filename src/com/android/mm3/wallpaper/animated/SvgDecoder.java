@@ -1,20 +1,20 @@
 package com.android.mm3.wallpaper.animated;
 
-import android.graphics.*;
-import android.graphics.drawable.PictureDrawable;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.LinearGradient;
+import android.graphics.Matrix;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.Picture;
+import android.graphics.RadialGradient;
+import android.graphics.RectF;
+import android.graphics.Shader;
 import android.util.Log;
 import android.util.Xml;
 
-import org.xml.sax.Attributes;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
-import org.xml.sax.XMLReader;
-import org.xml.sax.helpers.DefaultHandler;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
-
-import javax.xml.parsers.SAXParser;
-import javax.xml.parsers.SAXParserFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,11 +28,11 @@ public class SvgDecoder extends Decoder {
 
 	public static final String TAG = "SvgDecoder";
 	
-	protected Vector<SVGOld> frames = new Vector<SVGOld>(); // frames read from current file
 	protected int frameCount = 1;
+	protected SVG frame = new SVG(SvgDecoder.TAG_SVG, null);
 	
-	
-	protected SVG frame = new SVG();
+	private int width = 0;
+	private int height = 0;
 	
 	// structural elements
 	public static final String TAG_SVG                   = "svg";
@@ -191,6 +191,48 @@ public class SvgDecoder extends Decoder {
 		return tags.contains(tag);
 	}
     
+	public void setWidthHeight(int width, int height) {
+    	this.width = width;
+    	this.height = height;
+    }
+    
+    @Override
+	public int getWidth() {
+    	int localWidth = frame.getWidth();
+    	if(localWidth == 0) {
+    		localWidth = this.width;
+    	}
+		return localWidth;
+	}
+
+    @Override
+	public int getHeight() {
+    	int localHeight = frame.getHeight();
+    	if(localHeight == 0) {
+    		localHeight = this.height;
+    	}
+		return localHeight;
+	}
+	
+	public Picture getFramePicture(int n) {
+		if (frameCount <= 0)
+			return null;
+		n = n % frameCount;
+		Picture p = new Picture();
+		Canvas c = p.beginRecording(getWidth(), getHeight());
+		frame.draw(c);
+		p.endRecording();
+		return p;
+	}
+
+	public int getFrameCount() {
+		return frameCount;
+	}
+
+	public int getDelay(int n) {
+		return 100;
+	}
+
     public void parse(InputStream in) {
         try {
             XmlPullParser parser = Xml.newPullParser();
@@ -219,11 +261,9 @@ public class SvgDecoder extends Decoder {
     }
     
 	protected void parseTag(String tag, SVGElement element, XmlPullParser parser) throws XmlPullParserException, IOException {
-		SVGElement e = getElementByTag(tag);
-		e.setName(tag);
+		SVGElement e = getElementByTag(tag, element);
 		parseElements(tag, e, parser);
 		//e.setData(readText(parser));
-		element.addElement(e);
 		if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_G)) {
 		} else {
 			//skip(parser);
@@ -289,546 +329,6 @@ public class SvgDecoder extends Decoder {
         }  
     }
     
-    private SVGElement getElementByTag(String tag) {
-    	SVGElement ret = null;
-		if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_G)) {
-			ret = new SVGTagG();
-		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_PATH)) {
-			ret = new SVGTagPath();
-		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_RECT)) {
-			ret = new SVGTagRect();
-		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_CIRCLE)) {
-			ret = new SVGTagCircle();
-		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_ELLIPSE)) {
-			ret = new SVGTagEllipse();
-		} else {
-			ret = new SVGElement();
-		}
-		return ret;
-    }
-    
-	public Shader getGradientById(String id) {
-		return frame.getGradientById(id);
-	}
-	
-	public int getWidth() {
-		return 0; //frame.getGradientById(id);
-	}
-
-	public int getHeight() {
-		return 0; //frame.getGradientById(id);
-	}
-
-    
-    public static Float strToFloat(String str) {
-        try {
-        	return Float.parseFloat(str);
-        } catch (Exception nfe) {
-            return null;
-        }
-    }
-
-    public static Float attrToFloat(String str, Float bound) {
-        try {
-        	boolean percent = false;
-        	String v = str;
-            if (v.endsWith("px")) {
-                v = v.substring(0, v.length() - 2);
-            }
-    		else if(v.endsWith("%")) {
-    			v = v.substring(0, v.length() - 1);
-    			percent = true;
-    		}
-            Float ret = Float.parseFloat(v);
-            if(percent) {
-            	ret = ret * bound / 100;
-            }
-
-        	return ret;
-        } catch (Exception nfe) {
-            return null;
-        }
-    }
-    
-    
-    public class SVGTagCircle extends SVGFigure{
-
-    	private Float centerX = null;
-    	private Float centerY = null;
-    	private Float radius = null;
-
-
-    	public SVGTagCircle() {
-			// "circle"
-			setName(SvgDecoder.TAG_SVG_CIRCLE);
-		}
-
-    	@Override
-    	public void init() {
-    		Float widthcanvas = (float)getWidth();
-    		Float heightcanvas = (float)getHeight();
-    		String centerXstr = getAttr("cx");
-    		this.centerX = SvgDecoder.attrToFloat(centerXstr, widthcanvas);
-    		String centerYstr = getAttr("cy");
-    		this.centerY = SvgDecoder.attrToFloat(centerYstr, heightcanvas);
-    		String radiusstr = getAttr("r");
-    		this.radius = SvgDecoder.attrToFloat(radiusstr, widthcanvas);
-			super.init();
-		}
-
-		@Override
-    	public void drawData(Canvas c) {
-			if(this.centerX != null && this.centerY != null && this.radius != null) {
-				if(this.paintFill != null) {
-					c.drawCircle(this.centerX, this.centerY, this.radius, this.paintFill);
-				}
-				if(this.paintStroke != null) {
-					c.drawCircle(this.centerX, this.centerY, this.radius, this.paintStroke);
-				}
-			}
-    	}
-    }
-
-
-    public class SVGTagEllipse extends SVGFigure{
-
-    	private RectF rect = null;
-
-    	public SVGTagEllipse() {
-			// "ellipse"
-			setName(SvgDecoder.TAG_SVG_ELLIPSE);
-		}
-
-    	@Override
-    	public void init() {
-    		Float widthcanvas = (float)getWidth();
-    		Float heightcanvas = (float)getHeight();
-    		String centerXstr = getAttr("cx");
-    		Float centerX = SvgDecoder.attrToFloat(centerXstr, widthcanvas);
-    		String centerYstr = getAttr("cy");
-    		Float centerY = SvgDecoder.attrToFloat(centerYstr, heightcanvas);
-    		String radiusXstr = getAttr("rx");
-    		Float radiusX = SvgDecoder.attrToFloat(radiusXstr, widthcanvas);
-    		String radiusYstr = getAttr("ry");
-    		Float radiusY = SvgDecoder.attrToFloat(radiusYstr, heightcanvas);
-    		if (centerX != null && centerY != null && radiusX != null && radiusY != null) {
-    			this.rect = new RectF();
-    			this.rect.set(centerX - radiusX, centerY - radiusY, centerX + radiusX, centerY + radiusY);
-    		}
-
-			super.init();
-		}
-
-		@Override
-    	public void drawData(Canvas c) {
-			if(this.rect != null) {
-				if(this.paintFill != null) {
-					c.drawOval(this.rect, this.paintFill);
-				}
-				if(this.paintStroke != null) {
-					c.drawOval(this.rect, this.paintStroke);
-				}
-			}
-    	}
-    }
-
-    
-    public class SVGTagRect extends SVGFigure{
-    	private Float x = null;
-    	private Float y = null;
-    	private Float width = null;
-    	private Float height = null;
-
-    	public SVGTagRect() {
-			// "rect"
-			setName(SvgDecoder.TAG_SVG_RECT);
-		}
-
-    	@Override
-    	public void init() {
-    		Float widthcanvas = (float)getWidth();
-    		Float heightcanvas = (float)getHeight();
-    		String strx = getAttr("x");
-            this.x = SvgDecoder.attrToFloat(strx, widthcanvas);
-            if (this.x == null) {
-            	this.x = 0f;
-            }
-    		String stry = getAttr("y");
-    		this.y = SvgDecoder.attrToFloat(stry, heightcanvas);
-            if (this.y == null) {
-            	this.y = 0f;
-            }
-    		String strwidth = getAttr("width");
-    		this.width = SvgDecoder.attrToFloat(strwidth, widthcanvas);
-    		String strheight = getAttr("height");
-    		this.height = SvgDecoder.attrToFloat(strheight, heightcanvas);
-			final String d = getAttr("d");
-			super.init();
-		}
-
-		@Override
-    	public void drawData(Canvas c) {
-			if(this.paintFill != null) {
-				c.drawRect(this.x, this.y,
-						   this.x + this.width, 
-						   this.y + this.height, 
-						   this.paintFill);
-			}
-			if(this.paintStroke != null) {
-				c.drawRect(this.x, this.y, 
-						   this.x + this.width, 
-						   this.y + this.height, 
-						   this.paintFill);
-			}
-    	}
-    }
-
-    
-	
-    public class SVGTagPath extends SVGFigure{
-    	private Path path = null;
-
-    	public SVGTagPath() {
-			// "path"
-			setName(SvgDecoder.TAG_SVG_PATH);
-		}
-
-    	@Override
-    	public void init() {
-			final String d = getAttr("d");
-			if(d != null) {
-				this.path = doPath(d);
-			}
-			super.init();
-		}
-
-		@Override
-    	public void drawData(Canvas c) {
-			if(this.path != null) {
-				if(this.paintFill != null) {
-					c.drawPath(this.path, this.paintFill);
-				}
-				if(this.paintStroke != null) {
-					c.drawPath(this.path, this.paintStroke);
-				}
-			}
-    	}
-    }
-
-    public class SVGFigure extends SVGElement{
-    	
-    	protected boolean display = true;
-
-    	protected Matrix matrix = null;
-    	protected Paint paintFill = null;
-    	protected Paint paintStroke = null;
-    	protected StyleSet styles = null;
-
-		@Override
-    	public void init() {
-			initParams();
-			super.init();
-		}
-		
-		protected void initParams() {
-            final String transform = getAttr("transform");
-            if(transform != null) {
-            	this.matrix = parseTransform(transform);
-            }
-            final String styleAttr = getAttr("style");
-            if(styleAttr != null) {
-            	this.styles = new StyleSet(styleAttr);
-            }
-            
-            if ("none".equals(getAttr("display"))) {
-            	this.display = false;
-            }
-            
-            this.paintFill = getFillPaint();
-            this.paintStroke = getStrokePaint();
-		}
-		
-		private String getStyleAttr(String name) {
-            if(this.styles != null) {
-            	return styles.getStyle(name);
-            } else {
-                return getAttr(name);
-            }
-		}
-		
-		protected Paint getFillPaint() {
-			Paint paint = new Paint();
-			paint.setAntiAlias(true);
-            
-            Shader shader = null;
-            String fillString = getStyleAttr("fill");
-            if (fillString != null && fillString.startsWith("url(#")) {
-                String id = fillString.substring("url(#".length(), fillString.length() - 1);
-                shader = getGradientById(id);
-            }
-            paint.setShader(shader);
-            paint.setStyle(Paint.Style.FILL);
-            if (fillString != null && !fillString.startsWith("#")) {
-                try {
-                	Integer color = Integer.parseInt(fillString.substring(1), 16);
-                    int c = (0xFFFFFF & color) | 0xFF000000;
-                    paint.setColor(c);
-                    String opacitystr = getStyleAttr("opacity");
-                    Float opacity = SvgDecoder.strToFloat(opacitystr);
-
-                    if (opacity == null) {
-                        opacity = SvgDecoder.strToFloat(getStyleAttr("fill-opacity"));
-                    }
-                    if (opacity == null) {
-                    	paint.setAlpha(255);
-                    } else {
-                    	paint.setAlpha((int) (255 * opacity));
-                    }
-                } catch (NumberFormatException nfe) {
-                	paint.setColor(0xFF000000);
-                }
-            }
-			return paint;
-		}
-
-		protected Paint getStrokePaint() {
-			Paint paint = new Paint();
-			paint.setAntiAlias(true);
-			Integer color = null;
-			String strokeString = getStyleAttr("stroke");
-            if (strokeString != null && !strokeString.startsWith("#")) {
-                try {
-                	color = Integer.parseInt(strokeString.substring(1), 16);
-                } catch (NumberFormatException nfe) {
-                }
-            }
-            if (color != null) {
-                int c = (0xFFFFFF & color) | 0xFF000000;
-                paint.setColor(c);
-                String opacitystr = getStyleAttr("opacity");
-                Float opacity = SvgDecoder.strToFloat(opacitystr);
-
-                if (opacity == null) {
-                    opacity = SvgDecoder.strToFloat(getStyleAttr("stroke-opacity"));
-                }
-                if (opacity == null) {
-                	paint.setAlpha(255);
-                } else {
-                	paint.setAlpha((int) (255 * opacity));
-                }
-                // Check for other stroke attributes
-                Float width = SvgDecoder.strToFloat(getStyleAttr("stroke-width"));
-                // Set defaults
-
-                if (width != null) {
-                    paint.setStrokeWidth(width);
-                }
-                String linecap = getStyleAttr("stroke-linecap");
-                if ("round".equals(linecap)) {
-                    paint.setStrokeCap(Paint.Cap.ROUND);
-                } else if ("square".equals(linecap)) {
-                    paint.setStrokeCap(Paint.Cap.SQUARE);
-                } else if ("butt".equals(linecap)) {
-                    paint.setStrokeCap(Paint.Cap.BUTT);
-                }
-                String linejoin = getStyleAttr("stroke-linejoin");
-                if ("miter".equals(linejoin)) {
-                    paint.setStrokeJoin(Paint.Join.MITER);
-                } else if ("round".equals(linejoin)) {
-                    paint.setStrokeJoin(Paint.Join.ROUND);
-                } else if ("bevel".equals(linejoin)) {
-                    paint.setStrokeJoin(Paint.Join.BEVEL);
-                }
-                paint.setStyle(Paint.Style.STROKE);
-                return paint;
-            }
-			return null;
-		}
-
-		
-		@Override
-    	public void draw(Canvas c) {
-			if(!this.display) {
-				return;
-			}
-
-			if(this.matrix != null) {
-                c.save();
-                c.concat(this.matrix);
-			}
-			
-			drawData(c);
-			
-			if(this.matrix != null) {
-                c.restore();
-			}
-			super.draw(c);
-		}
-
-    	public void drawData(Canvas c) {
-    	}
-
-		
-    }
-
-	
-    public class SVGTagG extends SVGElement{
-    	private boolean display = true;
-    	
-		public SVGTagG() {
-			setName(SvgDecoder.TAG_SVG_G);
-		}
-
-		@Override
-    	public void init() {
-            if ("none".equals(getAttr("display"))) {
-            	this.display = false;
-            }
-			
-			super.init();
-		}
-
-		@Override
-    	public void draw(Canvas c) {
-			if(!this.display) {
-				return;
-			}
-
-			super.draw(c);
-		}
-    }
-    
-    
-    public class SVG extends SVGElement{
-		public SVG() {
-			setName(SvgDecoder.TAG_SVG);
-		}
-		
-		public Shader getGradientById(String id) {
-			return null;
-		}
-		
-		@Override
-    	public void init() {
-			super.init();
-		}
-		
-		@Override
-    	public void draw(Canvas c) {
-			super.draw(c);
-		}
-    }
-    
-    public class SVGElement {
-    	private HashMap<String,String> attrs = new HashMap<String,String>();
-    	private Vector<SVGElement> elements = new Vector<SVGElement>();
-    	private String data = null;
-    	private String name = null;
-    	
-    	public String getAttr(String attr) {
-    		return this.attrs.get(attr);
-    	}
-    	
-    	public void setAttr(String attr, String value) {
-    		this.attrs.put(attr, value);
-    	}
-    	
-    	public void addElement(SVGElement element) {
-    		this.elements.add(element);
-    	}
-    	
-    	public void setData(String data) {
-    		this.data = data;
-    	}
-    	
-    	public String getData() {
-    		return this.data;
-    	}
-    	
-    	public void setName(String name) {
-    		this.name = name;
-    	}
-    	
-    	public String getName() {
-    		return this.name;
-    	}
-    	
-    	public void init() {
-    		int size = this.elements.size();
-    		for(int i = 0; i < size; i++) {
-    			this.elements.get(i).init();
-    		}
-    	}
-
-    	public void draw(Canvas c) {
-    		int size = this.elements.size();
-    		for(int i = 0; i < size; i++) {
-    			this.elements.get(i).draw(c);
-    		}
-    	}
-    }
-    
-    
-    
-
-
-
-    public Path parsePath(String pathString) {
-        return doPath(pathString);
-    }
-	
-	public int read(InputStream is, int width, int height) {
-		Log.w(TAG, "read input stream");
-		Log.w(TAG, "");		
-		frames.add(parse(is, 0, 0, width, height, true));
-		frameCount = frames.size();
-		Log.w(TAG, "read end");
-		return frameCount;
-	}
-
-	public Picture getFramePicture(int n) {
-		if (frameCount <= 0)
-			return null;
-		n = n % frameCount;
-		return ((SVGOld) frames.elementAt(n)).getPicture();
-	}
-
-	public int getFrameCount() {
-		return frameCount;
-	}
-
-	public int getDelay(int n) {
-		return 100;
-	}
-	
-	
-    private SVGOld parse(InputStream in, Integer searchColor, Integer replaceColor, int width, int height, boolean whiteMode) throws SVGParseException {
-		Log.w(TAG, "parse start");
-        try {
-	        SAXParserFactory spf = SAXParserFactory.newInstance();
-	        SAXParser sp = spf.newSAXParser();
-	        XMLReader xr = sp.getXMLReader();
- 			final Picture picture = new Picture();
-	        SVGHandler handler = new SVGHandler(picture, width, height);
-	        InputSource is = new InputSource(in);
-	        handler.setColorSwap(searchColor, replaceColor);
-	        handler.setWhiteMode(whiteMode);
-	        xr.setContentHandler(handler);
- 			xr.parse(is);
- 			SVGOld result = new SVGOld(picture, handler.bounds);
-	        // Skip bounds if it was an empty pic
-            if (!Float.isInfinite(handler.limits.top)) {
-                result.setLimits(handler.limits);
-            }
-			Log.w(TAG, "parse end");
-            return result;
-        } catch (Exception e) {
-			e.printStackTrace();
-			Log.w(TAG, "exception - "+e.getMessage());
-            throw new SVGParseException(e);
-        }
-    }
-
     private NumberParse parseNumbers(String s) {
         //Util.debug("Parsing numbers from: '" + s + "'");
         int n = s.length();
@@ -871,7 +371,7 @@ public class SvgDecoder extends Decoder {
                         numbers.add(f);
                     }
                     p = i;
-                    return new NumberParse(numbers, p);
+                    return new NumberParse(numbers);
                 }
                 case '\n':
                 case '\t':
@@ -907,7 +407,7 @@ public class SvgDecoder extends Decoder {
             }
             p = s.length();
         }
-        return new NumberParse(numbers, p);
+        return new NumberParse(numbers);
     }
 
     private Matrix parseTransform(String s) {
@@ -1012,7 +512,7 @@ public class SvgDecoder extends Decoder {
      *
      * @param s the path string from the XML
      */
-    private Path doPath(String s) {
+    private Path parsePath(String s) {
         int n = s.length();
         ParserHelper ph = new ParserHelper(s, 0);
         ph.skipWhitespace();
@@ -1199,130 +699,968 @@ public class SvgDecoder extends Decoder {
     private void drawArc(Path p, float lastX, float lastY, float x, float y, float rx, float ry, float theta, int largeArc, int sweepArc) {
         // todo - not implemented yet, may be very hard to do using Android drawing facilities.
     }
+    
+    private SVGElement getElementByTag(String tag, SVGElement parent) {
+    	SVGElement ret = null;
+		if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_G)) {
+			ret = new SVGTagG(tag, parent);
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_PATH)) {
+			ret = new SVGTagPath(tag, parent);
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_RECT)) {
+			ret = new SVGTagRect(tag, parent);
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_CIRCLE)) {
+			ret = new SVGTagCircle(tag, parent);
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_ELLIPSE)) {
+			ret = new SVGTagEllipse(tag, parent);
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_LINE)) {
+			ret = new SVGTagLine(tag, parent);
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_POLYLINE)) {
+			ret = new SVGTagPolyline(tag, parent);
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_POLYGON)) {
+			ret = new SVGTagPolygon(tag, parent);
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_LINEAR_GRADIENT)) {
+			ret = new SVGTagLinearGradient(tag, parent);
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_RADIAL_GRADIENT)) {
+			ret = new SVGTagRadialGradient(tag, parent);
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_STOP)) {
+			ret = new SVGTagStop(tag, parent);
+		} else {
+			ret = new SVGElement(tag, parent);
+		}
+		return ret;
+    }
 
-    private NumberParse getNumberParseAttr(String name, Attributes attributes) {
-        int n = attributes.getLength();
-        for (int i = 0; i < n; i++) {
-            if (attributes.getLocalName(i).equals(name)) {
-                return parseNumbers(attributes.getValue(i));
-            }
+    
+    public static Float strToFloat(String str) {
+        try {
+        	return Float.parseFloat(str);
+        } catch (Exception nfe) {
+            return null;
         }
-        return null;
     }
 
-    private String getStringAttr(String name, Attributes attributes) {
-        int n = attributes.getLength();
-        for (int i = 0; i < n; i++) {
-            if (attributes.getLocalName(i).equals(name)) {
-                return attributes.getValue(i);
-            }
-        }
-        return null;
-    }
-
-    private Float getFloatAttr(String name, Attributes attributes) {
-        return getFloatAttr(name, attributes, null);
-    }
-
-    private Float getFloatAttr(String name, Attributes attributes, Float defaultValue) {
-        String v = getStringAttr(name, attributes);
-        if (v == null) {
-            return defaultValue;
-        } else {
+    public static Float attrToFloat(String str, Float bound) {
+        try {
+        	boolean percent = false;
+        	String v = str;
             if (v.endsWith("px")) {
                 v = v.substring(0, v.length() - 2);
             }
-			else if(v.endsWith("%")) {
-				v = v.substring(0, v.length() - 1);
-			}
-//            Log.d(TAG, "Float parsing '" + name + "=" + v + "'");
-            return Float.parseFloat(v);
-        }
-    }
-
-    private Integer getHexAttr(String name, Attributes attributes) {
-        String v = getStringAttr(name, attributes);
-        //Util.debug("Hex parsing '" + name + "=" + v + "'");
-        if (v == null) {
-            return null;
-        } else {
-            try {
-                return Integer.parseInt(v.substring(1), 16);
-            } catch (NumberFormatException nfe) {
-                // todo - parse word-based color here
-                return null;
+    		else if(v.endsWith("%")) {
+    			v = v.substring(0, v.length() - 1);
+    			percent = true;
+    		}
+            Float ret = Float.parseFloat(v);
+            if(percent) {
+            	ret = ret * bound / 100;
             }
+
+        	return ret;
+        } catch (Exception nfe) {
+            return null;
         }
     }
-	
-	public class SVGOld {
-
-		private Picture picture;
-
-		private RectF bounds;
-
-		private RectF limits = null;
-
-		SVGOld(Picture picture, RectF bounds) {
-			this.picture = picture;
-			this.bounds = bounds;
+    
+	public static int getColor(String color) {
+		int ret = Color.BLACK;
+		if (color != null) {
+			if (color.startsWith("#")) {
+				ret = Integer.parseInt(color.substring(1), 16);
+			} else if (color.equalsIgnoreCase("black")) {
+				ret = Color.BLACK;
+			} else if (color.equalsIgnoreCase("white")) {
+				ret = Color.WHITE;
+			} else if (color.equalsIgnoreCase("blue")) {
+				ret = Color.BLUE;
+			} else if (color.equalsIgnoreCase("yellow")) {
+				ret = Color.YELLOW;
+			} else if (color.equalsIgnoreCase("red")) {
+				ret = Color.RED;
+			} else if (color.equalsIgnoreCase("green")) {
+				ret = Color.GREEN;
+			} else if (color.equalsIgnoreCase("gray")) {
+				ret = Color.GRAY;
+			} else {
+				ret = Integer.parseInt(color, 16);
+			}
 		}
-
-		void setLimits(RectF limits) {
-			this.limits = limits;
-		}
-
-		public PictureDrawable createPictureDrawable() {
-			return new PictureDrawable(picture);
-		}
-
-		public Picture getPicture() {
-			return picture;
-		}
-
-		public RectF getBounds() {
-			return bounds;
-		}
-
-		public RectF getLimits() {
-			return limits;
-		}
+		return ret;			
 	}
 
+    public class SVGTagLine extends SVGFigure{
+
+    	private Float x1 = null;
+    	private Float x2 = null;
+    	private Float y1 = null;
+    	private Float y2 = null;
+
+    	public SVGTagLine(String tag, SVGElement parent) {
+			// "line"
+    		super(SvgDecoder.TAG_SVG_LINE, parent);
+		}
+
+    	@Override
+    	public void init() {
+    		Float widthcanvas = (float)getWidth();
+    		Float heightcanvas = (float)getHeight();
+    		this.x1 = getFloatAttr("x1", widthcanvas);
+    		this.x2 = getFloatAttr("x2", widthcanvas);
+    		this.y1 = getFloatAttr("y1", heightcanvas);
+    		this.y2 = getFloatAttr("y2", heightcanvas);
+			super.init();
+		}
+
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.x1 != null && this.x2 != null && this.y1 != null && this.y2 != null) {
+				if(this.paintStroke != null) {
+					c.drawLine(this.x1, this.y1, this.x2, this.y2, this.paintStroke);
+				}
+			}
+    	}
+    }
+
+    public class SVGTagPolyline extends SVGFigure{
+
+    	private Path path = null;
+
+    	public SVGTagPolyline(String tag, SVGElement parent) {
+			// "polyline"
+    		super(SvgDecoder.TAG_SVG_POLYLINE, parent);
+		}
+
+    	@Override
+    	public void init() {
+            NumberParse numbers = null;
+            String pointstr = getAttr("points");
+            if(pointstr != null) {
+            	numbers = parseNumbers("points");
+            }
+            if (numbers != null) {
+                Path p = new Path();
+                ArrayList<Float> points = numbers.numbers;
+                if (points.size() > 1) {
+                    p.moveTo(points.get(0), points.get(1));
+                    for (int i = 2; i < points.size(); i += 2) {
+                        float x = points.get(i);
+                        float y = points.get(i + 1);
+                        p.lineTo(x, y);
+                    }
+                    this.path = p;
+                }
+            }
+
+			super.init();
+		}
+
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.path != null) {
+				if(this.paintFill != null) {
+					c.drawPath(this.path, this.paintFill);
+				}
+				if(this.paintStroke != null) {
+					c.drawPath(this.path, this.paintStroke);
+				}
+			}
+    	}
+    }
+
+    
+    public class SVGTagPolygon extends SVGFigure{
+
+    	private Path path = null;
+
+    	public SVGTagPolygon(String tag, SVGElement parent) {
+			// "polygon"
+    		super(SvgDecoder.TAG_SVG_POLYGON, parent);
+		}
+
+    	@Override
+    	public void init() {
+            NumberParse numbers = null;
+            String pointstr = getAttr("points");
+            if(pointstr != null) {
+            	numbers = parseNumbers("points");
+            }
+            if (numbers != null) {
+                Path p = new Path();
+                ArrayList<Float> points = numbers.numbers;
+                if (points.size() > 1) {
+                    p.moveTo(points.get(0), points.get(1));
+                    for (int i = 2; i < points.size(); i += 2) {
+                        float x = points.get(i);
+                        float y = points.get(i + 1);
+                        p.lineTo(x, y);
+                    }
+                    p.close();
+                    this.path = p;
+                }
+            }
+
+			super.init();
+		}
+
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.path != null) {
+				if(this.paintFill != null) {
+					c.drawPath(this.path, this.paintFill);
+				}
+				if(this.paintStroke != null) {
+					c.drawPath(this.path, this.paintStroke);
+				}
+			}
+    	}
+    }
+
+    
+    public class SVGTagCircle extends SVGFigure{
+
+    	private Float centerX = null;
+    	private Float centerY = null;
+    	private Float radius = null;
+
+    	public SVGTagCircle(String tag, SVGElement parent) {
+			// "circle"
+    		super(SvgDecoder.TAG_SVG_CIRCLE, parent);
+		}
+
+    	@Override
+    	public void init() {
+    		Float widthcanvas = (float)getWidth();
+    		Float heightcanvas = (float)getHeight();
+    		this.centerX = getFloatAttr("cx", widthcanvas);
+    		this.centerY = getFloatAttr("cy", heightcanvas);
+    		this.radius = getFloatAttr("r", widthcanvas);
+			super.init();
+		}
+
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.centerX != null && this.centerY != null && this.radius != null) {
+				if(this.paintFill != null) {
+					c.drawCircle(this.centerX, this.centerY, this.radius, this.paintFill);
+				}
+				if(this.paintStroke != null) {
+					c.drawCircle(this.centerX, this.centerY, this.radius, this.paintStroke);
+				}
+			}
+    	}
+    }
+
+
+    public class SVGTagEllipse extends SVGFigure{
+
+    	private RectF rect = null;
+
+    	public SVGTagEllipse(String tag, SVGElement parent) {
+			// "ellipse"
+    		super(SvgDecoder.TAG_SVG_ELLIPSE, parent);
+		}
+
+    	@Override
+    	public void init() {
+    		Float widthcanvas = (float)getWidth();
+    		Float heightcanvas = (float)getHeight();
+    		Float centerX = getFloatAttr("cx", widthcanvas);
+    		Float centerY = getFloatAttr("cy", heightcanvas);
+    		Float radiusX = getFloatAttr("rx", widthcanvas);
+    		Float radiusY = getFloatAttr("ry", heightcanvas);
+    		if (centerX != null && centerY != null && radiusX != null && radiusY != null) {
+    			this.rect = new RectF();
+    			this.rect.set(centerX - radiusX, centerY - radiusY, centerX + radiusX, centerY + radiusY);
+    		}
+
+			super.init();
+		}
+
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.rect != null) {
+				if(this.paintFill != null) {
+					c.drawOval(this.rect, this.paintFill);
+				}
+				if(this.paintStroke != null) {
+					c.drawOval(this.rect, this.paintStroke);
+				}
+			}
+    	}
+    }
+
+    
+    public class SVGTagRect extends SVGFigure{
+    	private Float x = null;
+    	private Float y = null;
+    	private Float width = null;
+    	private Float height = null;
+    	private RectF bounds = null;
+
+    	public SVGTagRect(String tag, SVGElement parent) {
+			// "rect"
+    		super(SvgDecoder.TAG_SVG_RECT, parent);
+		}
+    	
+    	public RectF getBounds() {
+    		return this.bounds;
+    	}
+
+    	@Override
+    	public void init() {
+    		Float widthcanvas = (float)getWidth();
+    		Float heightcanvas = (float)getHeight();
+            this.x = getFloatAttr("x", widthcanvas);
+    		this.y = getFloatAttr("y", heightcanvas);
+    		this.width = getFloatAttr("width", widthcanvas);
+    		this.height = getFloatAttr("height", heightcanvas);
+    		this.bounds = new RectF(this.x, this.y, this.x + this.width, this.y + this.width);
+			super.init();
+		}
+
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.paintFill != null) {
+				c.drawRect(this.x, this.y,
+						   this.x + this.width, 
+						   this.y + this.height, 
+						   this.paintFill);
+			}
+			if(this.paintStroke != null) {
+				c.drawRect(this.x, this.y, 
+						   this.x + this.width, 
+						   this.y + this.height, 
+						   this.paintFill);
+			}
+    	}
+    }
+
+    
+	
+    public class SVGTagPath extends SVGFigure{
+    	private Path path = null;
+
+    	public SVGTagPath(String tag, SVGElement parent) {
+			// "path"
+    		super(SvgDecoder.TAG_SVG_PATH, parent);
+		}
+
+    	@Override
+    	public void init() {
+			final String d = getAttr("d");
+			if(d != null) {
+				this.path = parsePath(d);
+			}
+			super.init();
+		}
+
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.path != null) {
+				if(this.paintFill != null) {
+					c.drawPath(this.path, this.paintFill);
+				}
+				if(this.paintStroke != null) {
+					c.drawPath(this.path, this.paintStroke);
+				}
+			}
+    	}
+    }
+
+    public class SVGFigure extends SVGElement{
+    	
+    	protected boolean display = true;
+
+    	protected Matrix matrix = null;
+    	protected Paint paintFill = null;
+    	protected Paint paintStroke = null;
+    	protected StyleSet styles = null;
+
+		public SVGFigure(String tag, SVGElement parent) {
+			super(tag, parent);
+		}
+
+		@Override
+    	public void init() {
+			initParams();
+			super.init();
+		}
+		
+		protected void initParams() {
+            final String transform = getAttr("transform");
+            if(transform != null) {
+            	this.matrix = parseTransform(transform);
+            }
+            final String styleAttr = getAttr("style");
+            if(styleAttr != null) {
+            	this.styles = new StyleSet(styleAttr);
+            }
+            
+            if ("none".equals(getAttr("display"))) {
+            	this.display = false;
+            }
+            
+            this.paintFill = getFillPaint();
+            this.paintStroke = getStrokePaint();
+		}
+		
+		private String getStyleAttr(String name) {
+            if(this.styles != null) {
+            	return styles.getStyle(name);
+            } else {
+                return getAttr(name);
+            }
+		}
+		
+		protected Paint getFillPaint() {
+			Paint paint = new Paint();
+			paint.setAntiAlias(true);
+			paint.setAlpha(255);
+            
+            Shader shader = null;
+            String fillString = getStyleAttr("fill");
+            if (fillString != null && fillString.startsWith("url(#")) {
+                String id = fillString.substring("url(#".length(), fillString.length() - 1);
+                SVGElement root = getRoot();
+                if(root instanceof SVG) {
+                    shader = ((SVG)root).getGradientById(id);
+                }
+            }
+            paint.setShader(shader);
+            paint.setStyle(Paint.Style.FILL);
+            if (fillString != null && fillString.startsWith("#")) {
+                try {
+                	Integer color = Integer.parseInt(fillString.substring(1), 16);
+                    int c = (0xFFFFFF & color) | 0xFF000000;
+                    paint.setColor(c);
+                    String opacitystr = getStyleAttr("opacity");
+                    Float opacity = SvgDecoder.strToFloat(opacitystr);
+
+                    if (opacity == null) {
+                        opacity = SvgDecoder.strToFloat(getStyleAttr("fill-opacity"));
+                    }
+                    if (opacity == null) {
+                    	paint.setAlpha(255);
+                    } else {
+                    	paint.setAlpha((int) (255 * opacity));
+                    }
+                } catch (NumberFormatException nfe) {
+                	paint.setColor(0xFF000000);
+                }
+            }
+			return paint;
+		}
+
+		protected Paint getStrokePaint() {
+			Paint paint = new Paint();
+			paint.setAntiAlias(true);
+			paint.setAlpha(255);
+			Integer color = null;
+			String strokeString = getStyleAttr("stroke");
+            if (strokeString != null && !strokeString.startsWith("#")) {
+                try {
+                	color = Integer.parseInt(strokeString.substring(1), 16);
+                } catch (NumberFormatException nfe) {
+                }
+            }
+            if (color != null) {
+                int c = (0xFFFFFF & color) | 0xFF000000;
+                paint.setColor(c);
+                String opacitystr = getStyleAttr("opacity");
+                Float opacity = SvgDecoder.strToFloat(opacitystr);
+
+                if (opacity == null) {
+                    opacity = SvgDecoder.strToFloat(getStyleAttr("stroke-opacity"));
+                }
+                if (opacity == null) {
+                	paint.setAlpha(255);
+                } else {
+                	paint.setAlpha((int) (255 * opacity));
+                }
+                // Check for other stroke attributes
+                Float width = SvgDecoder.strToFloat(getStyleAttr("stroke-width"));
+                // Set defaults
+
+                if (width != null) {
+                    paint.setStrokeWidth(width);
+                }
+                String linecap = getStyleAttr("stroke-linecap");
+                if ("round".equals(linecap)) {
+                    paint.setStrokeCap(Paint.Cap.ROUND);
+                } else if ("square".equals(linecap)) {
+                    paint.setStrokeCap(Paint.Cap.SQUARE);
+                } else if ("butt".equals(linecap)) {
+                    paint.setStrokeCap(Paint.Cap.BUTT);
+                }
+                String linejoin = getStyleAttr("stroke-linejoin");
+                if ("miter".equals(linejoin)) {
+                    paint.setStrokeJoin(Paint.Join.MITER);
+                } else if ("round".equals(linejoin)) {
+                    paint.setStrokeJoin(Paint.Join.ROUND);
+                } else if ("bevel".equals(linejoin)) {
+                    paint.setStrokeJoin(Paint.Join.BEVEL);
+                }
+                paint.setStyle(Paint.Style.STROKE);
+                return paint;
+            }
+			return null;
+		}
+
+		
+		@Override
+    	public void draw(Canvas c) {
+			if(!this.display) {
+				return;
+			}
+
+			if(this.matrix != null) {
+                c.save();
+                c.concat(this.matrix);
+			}
+			
+			drawData(c);
+			
+			if(this.matrix != null) {
+                c.restore();
+			}
+			super.draw(c);
+		}
+
+    	public void drawData(Canvas c) {
+    	}
+
+		
+    }
+
+    public class SVGTagLinearGradient extends SVGGradient{
+    	
+		public SVGTagLinearGradient(String tag, SVGElement parent) {
+			// "linearGradient"
+			super(SvgDecoder.TAG_SVG_LINEAR_GRADIENT, parent);
+		}
+
+		@Override
+    	public void init() {
+			super.init();
+			
+    		Float widthcanvas = (float)getWidth();
+    		Float heightcanvas = (float)getHeight();
+    		
+            Gradient gradient = new Gradient();
+            gradient.id = getAttr("id");
+            gradient.isLinear = true;
+            gradient.x1 = getFloatAttr("x1", widthcanvas);
+            gradient.x2 = getFloatAttr("x2", widthcanvas);
+            gradient.y1 = getFloatAttr("y1", heightcanvas);
+            gradient.y2 = getFloatAttr("y2", heightcanvas);
+            String transform = getAttr("gradientTransform");
+            if (transform != null) {
+                gradient.matrix = parseTransform(transform);
+            }
+            String xlink = getAttr("href");
+            if (xlink != null) {
+                if (xlink.startsWith("#")) {
+                    xlink = xlink.substring(1);
+                }
+                gradient.xlink = xlink;
+            }
+
+			int size = getElementsSize();
+    		for(int i = 0; i < size; i++) {
+    			SVGElement e = getElement(i);
+    			if(e instanceof SVGTagStop) {
+    				float offset = ((SVGTagStop)e).getOffset();
+    				int color = ((SVGTagStop)e).getColor();
+                    gradient.positions.add(offset);
+                    gradient.colors.add(color);
+    			}
+    		}
+
+            this.gradientRef = gradient;
+            
+            if (gradient.id != null) {
+                if (gradient.xlink != null) {
+                	Gradient parent = null;
+                    SVGElement root = getRoot();
+                    if(root instanceof SVG) {
+                    	parent = ((SVG)root).getGradientRefById(gradient.xlink);
+                    }
+                    if (parent != null) {
+                        gradient = parent.createChild(gradient);
+                    }
+                }
+                int[] colors = new int[gradient.colors.size()];
+                for (int i = 0; i < colors.length; i++) {
+                    colors[i] = gradient.colors.get(i);
+                }
+                float[] positions = new float[gradient.positions.size()];
+                for (int i = 0; i < positions.length; i++) {
+                    positions[i] = gradient.positions.get(i);
+                }
+                if (gradient.xlink != null) {
+                	Gradient parent = null;
+                    SVGElement root = getRoot();
+                    if(root instanceof SVG) {
+                    	parent = ((SVG)root).getGradientRefById(gradient.xlink);
+                    }
+                    if (parent != null) {
+                        gradient = parent.createChild(gradient);
+                    }
+                }
+                LinearGradient g = new LinearGradient(gradient.x1, gradient.y1, gradient.x2, gradient.y2, colors, positions, Shader.TileMode.CLAMP);
+                if (gradient.matrix != null) {
+                    g.setLocalMatrix(gradient.matrix);
+                }
+                this.gradientAnd = g;
+            }
+		}
+    }
+
+    public class SVGTagRadialGradient extends SVGGradient{
+    	
+		public SVGTagRadialGradient(String tag, SVGElement parent) {
+			// "radialGradient"
+			super(SvgDecoder.TAG_SVG_RADIAL_GRADIENT, parent);
+		}
+
+		@Override
+    	public void init() {
+			super.init();
+
+			Float widthcanvas = (float)getWidth();
+    		Float heightcanvas = (float)getHeight();
+
+            Gradient gradient = new Gradient();
+            gradient.id = getAttr("id");
+            gradient.isLinear = false;
+   			gradient.x = getFloatAttr("cx", widthcanvas);
+   			gradient.y = getFloatAttr("cy", heightcanvas);
+   			gradient.radius = getFloatAttr("r", widthcanvas);
+            String transform = getAttr("gradientTransform");
+            if (transform != null) {
+                gradient.matrix = parseTransform(transform);
+            }
+            String xlink = getAttr("href");
+            if (xlink != null) {
+                if (xlink.startsWith("#")) {
+                    xlink = xlink.substring(1);
+                }
+                gradient.xlink = xlink;
+            }
+            
+			int size = getElementsSize();
+    		for(int i = 0; i < size; i++) {
+    			SVGElement e = getElement(i);
+    			if(e instanceof SVGTagStop) {
+    				float offset = ((SVGTagStop)e).getOffset();
+    				int color = ((SVGTagStop)e).getColor();
+                    gradient.positions.add(offset);
+                    gradient.colors.add(color);
+    			}
+    		}
+            
+            this.gradientRef = gradient;
+            
+            if (gradient.id != null) {
+                if (gradient.xlink != null) {
+                	Gradient parent = null;
+                    SVGElement root = getRoot();
+                    if(root instanceof SVG) {
+                    	parent = ((SVG)root).getGradientRefById(gradient.xlink);
+                    }
+                    if (parent != null) {
+                        gradient = parent.createChild(gradient);
+                    }
+                }
+                int[] colors = new int[gradient.colors.size()];
+                for (int i = 0; i < colors.length; i++) {
+                    colors[i] = gradient.colors.get(i);
+                }
+                float[] positions = new float[gradient.positions.size()];
+                for (int i = 0; i < positions.length; i++) {
+                    positions[i] = gradient.positions.get(i);
+                }
+                if (gradient.xlink != null) {
+                	Gradient parent = null;
+                    SVGElement root = getRoot();
+                    if(root instanceof SVG) {
+                    	parent = ((SVG)root).getGradientRefById(gradient.xlink);
+                    }
+                    if (parent != null) {
+                        gradient = parent.createChild(gradient);
+                    }
+                }
+                RadialGradient g = new RadialGradient(gradient.x, gradient.y, gradient.radius, colors, positions, Shader.TileMode.CLAMP);
+                if (gradient.matrix != null) {
+                    g.setLocalMatrix(gradient.matrix);
+                }
+                this.gradientAnd = g;
+            }
+		}
+    }
+
+    
+    public class SVGGradient extends SVGElement{
+    	protected Gradient gradientRef = null;
+    	protected Shader gradientAnd = null;
+    	
+		public SVGGradient(String tag, SVGElement parent) {
+			super(tag, parent);
+		}
+		
+		public Shader getGradient(String id) {
+			if(this.gradientRef != null && this.gradientRef.id != null && this.gradientRef.id.equals(id)) {
+				return this.gradientAnd;
+			} 
+			return null;
+		}
+		
+		public Gradient getGradientRef(String id) {
+			if(this.gradientRef != null && this.gradientRef.id != null && this.gradientRef.id.equals(id)) {
+				return this.gradientRef;
+			} 
+			return null;
+		}
+    }
+
+    public class SVGTagStop extends SVGElement{
+    	private float offset = 0f;
+    	private int color = 0;
+
+    	public SVGTagStop(String tag, SVGElement parent) {
+			// "stop"
+			super(SvgDecoder.TAG_SVG_STOP, parent);
+		}
+    	
+    	public float getOffset() {
+    		return this.offset;
+    	}
+    	
+    	public int getColor() {
+    		return this.color;
+    	}
+
+		@Override
+    	public void init() {
+            this.offset = getFloatAttr("offset", 0f);
+            String styles = getAttr("style");
+            this.color = 0;
+            if(styles!=null) {
+                StyleSet styleSet = new StyleSet(styles);
+                String colorStyle = styleSet.getStyle("stop-color");
+                this.color = SvgDecoder.getColor(colorStyle);
+                String opacityStyle = styleSet.getStyle("stop-opacity");
+                if (opacityStyle != null) {
+                    float alpha = Float.parseFloat(opacityStyle);
+                    int alphaInt = Math.round(255 * alpha);
+                    this.color |= (alphaInt << 24);
+                } else {
+                	this.color |= 0xFF000000;
+                }
+            }
+			super.init();
+		}
+    }
+    
+    public class SVGTagG extends SVGElement{
+    	private boolean display = true;
+    	private boolean boundsMode = true;
+    	
+		public SVGTagG(String tag, SVGElement parent) {
+			// "g"
+			super(SvgDecoder.TAG_SVG_G, parent);
+		}
+		
+		public boolean inBoundsMode() {
+			return this.boundsMode;
+		}
+
+		@Override
+    	public void init() {
+            if ("none".equals(getAttr("display"))) {
+            	this.display = false;
+            }
+            
+            if ("bounds".equalsIgnoreCase(getAttr("id"))) {
+                boundsMode = true;
+            }
+			
+			super.init();
+		}
+
+		@Override
+    	public void draw(Canvas c) {
+			if(!this.display) {
+				return;
+			}
+
+			super.draw(c);
+		}
+    }
+    
+    
+    public class SVG extends SVGElement{
+    	
+    	private int width = 0;
+    	private int height = 0;
+    	
+		public SVG(String tag, SVGElement parent) {
+			super(SvgDecoder.TAG_SVG, parent);
+		}
+		
+		public Shader getGradientById(String id) {
+			SVGElement ret = searchGradientById(id, this);
+			if(ret != null) {
+    			if(ret instanceof SVGGradient) {
+    				return ((SVGGradient)ret).getGradient(id);
+    			}
+			}
+			return null;
+		}
+		
+		public Gradient getGradientRefById(String id) {
+			SVGElement ret = searchGradientById(id, this);
+			if(ret != null) {
+    			if(ret instanceof SVGGradient) {
+    				return ((SVGGradient)ret).getGradientRef(id);
+    			}
+			}
+			return null;
+		}
+		
+		private SVGElement searchGradientById(String id, SVGElement element) {
+			int size = element.getElementsSize();
+    		for(int i = 0; i < size; i++) {
+    			SVGElement e = element.getElement(i);
+    			if(e instanceof SVGGradient) {
+    				if(((SVGGradient)e).getGradientRef(id) != null) {
+    					return e;
+    				}
+    			}
+    			SVGElement ret = searchGradientById(id, e);
+    			if(ret != null) {
+    				return ret;
+    			}
+    		}
+    		return null;
+		}
+		
+		public int getWidth() {
+			return this.width;
+		}
+		
+		public int getHeight() {
+			return this.height;
+		}
+
+
+		@Override
+    	public void init() {
+			Float widthf = getFloatAttr("width", 0f);
+			Float heightf = getFloatAttr("height", 0f);
+			if(widthf != null && heightf != null) {
+            	this.width = (int) Math.ceil((double)widthf);
+            	this.height = (int) Math.ceil((double)heightf);
+			}
+			
+			super.init();
+		}
+		
+		@Override
+    	public void draw(Canvas c) {
+			super.draw(c);
+		}
+    }
+    
+    public class SVGElement {
+    	private HashMap<String,String> attrs = new HashMap<String,String>();
+    	private Vector<SVGElement> elements = new Vector<SVGElement>();
+    	private SVGElement parent = null;
+    	private String data = null;
+    	private String name = null;
+    	
+		public SVGElement(String tag, SVGElement parent) {
+			this.name = tag;
+			this.parent = parent;
+			if(this.parent != null) {
+				this.parent.addElement(this);
+			}
+		}
+		
+		public SVGElement getRoot() {
+			if(this.parent != null) {
+				return this.parent.getRoot();
+			} else {
+				return this;
+			}
+		}
+
+		public SVGElement getParent() {
+			return this.parent;
+		}
+    	
+    	public String getAttr(String attr) {
+    		return this.attrs.get(attr);
+    	}
+    	
+    	public Float getFloatAttr(String attr, Float bound) {
+    		String str = getAttr(attr);
+    		if(str != null) {
+    			return SvgDecoder.attrToFloat(str, bound);
+    		} 
+    		return 0f;
+    	}
+    	
+    	
+    	public void setAttr(String attr, String value) {
+    		this.attrs.put(attr, value);
+    	}
+    	
+    	public void addElement(SVGElement element) {
+    		this.elements.add(element);
+    	}
+    	
+    	public int getElementsSize() {
+    		return this.elements.size();
+    	}
+    	
+    	public SVGElement getElement(int i) {
+    		return this.elements.get(i);
+    	}
+    	
+    	public void setData(String data) {
+    		this.data = data;
+    	}
+    	
+    	public String getData() {
+    		return this.data;
+    	}
+    	
+    	public String getName() {
+    		return this.name;
+    	}
+    	
+    	public void init() {
+    		int size = this.elements.size();
+    		for(int i = 0; i < size; i++) {
+    			this.elements.get(i).init();
+    		}
+    	}
+
+    	public void draw(Canvas c) {
+    		int size = this.elements.size();
+    		for(int i = 0; i < size; i++) {
+    			this.elements.get(i).draw(c);
+    		}
+    	}
+    }
+    
     private class NumberParse {
         private ArrayList<Float> numbers;
-        private int nextCmd;
 
-        public NumberParse(ArrayList<Float> numbers, int nextCmd) {
+        public NumberParse(ArrayList<Float> numbers) {
             this.numbers = numbers;
-            this.nextCmd = nextCmd;
         }
-
-        public int getNextCmd() {
-            return nextCmd;
-        }
-
-        public float getNumber(int index) {
-            return numbers.get(index);
-        }
-
     }
-	
-	public class SVGParseException extends RuntimeException {
-
-		public SVGParseException(String s) {
-			super(s);
-		}
-
-		public SVGParseException(String s, Throwable throwable) {
-			super(s, throwable);
-		}
-
-		public SVGParseException(Throwable throwable) {
-			super(throwable);
-		}
-	}
-	
 
     private class Gradient {
         String id;
@@ -1380,69 +1718,6 @@ public class SvgDecoder extends Decoder {
         }
     }
 
-    private class Properties {
-        StyleSet styles = null;
-        Attributes atts;
-
-        private Properties(Attributes atts) {
-            this.atts = atts;
-            String styleAttr = getStringAttr("style", atts);
-            if (styleAttr != null) {
-                styles = new StyleSet(styleAttr);
-            }
-        }
-
-        public String getAttr(String name) {
-            String v = null;
-            if (styles != null) {
-                v = styles.getStyle(name);
-            }
-            if (v == null) {
-                v = getStringAttr(name, atts);
-            }
-            return v;
-        }
-
-        public String getString(String name) {
-            return getAttr(name);
-        }
-
-        public Integer getHex(String name) {
-            String v = getAttr(name);
-            if (v == null || !v.startsWith("#")) {
-                return null;
-            } else {
-                try {
-                    return Integer.parseInt(v.substring(1), 16);
-                } catch (NumberFormatException nfe) {
-                    // todo - parse word-based color here
-                    return null;
-                }
-            }
-        }
-
-        public Float getFloat(String name, float defaultValue) {
-            Float v = getFloat(name);
-            if (v == null) {
-                return defaultValue;
-            } else {
-                return v;
-            }
-        }
-
-        public Float getFloat(String name) {
-            String v = getAttr(name);
-            if (v == null) {
-                return null;
-            } else {
-                try {
-                    return Float.parseFloat(v);
-                } catch (NumberFormatException nfe) {
-                    return null;
-                }
-            }
-        }
-    }
 	
 	public class ParserHelper {
 
@@ -1725,536 +2000,4 @@ public class SvgDecoder extends Decoder {
 			return f;
 		}
 	}
-
-    private class SVGHandler extends DefaultHandler {
-
-        Picture picture;
-        Canvas canvas;
-        Paint paint;
-        // Scratch rect (so we aren't constantly making new ones)
-        RectF rect = new RectF();
-        RectF bounds = null;
-        RectF limits = new RectF(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY, Float.NEGATIVE_INFINITY);
-
-        Integer searchColor = null;
-        Integer replaceColor = null;
-
-        boolean whiteMode = false;
-
-        boolean pushed = false;
-		
-		int width = 0;
-		int height = 0;
-
-        HashMap<String, Shader> gradientMap = new HashMap<String, Shader>();
-        HashMap<String, Gradient> gradientRefMap = new HashMap<String, Gradient>();
-        Gradient gradient = null;
-
-        private SVGHandler(Picture picture) {
-            this.picture = picture;
-            paint = new Paint();
-            paint.setAntiAlias(true);
-        }
-		
-		private SVGHandler(Picture picture, int width, int height) {
-            this.picture = picture;
-            paint = new Paint();
-            paint.setAntiAlias(true);
-			this.width = width;
-			this.height = height;
-        }
-		
-
-        public void setColorSwap(Integer searchColor, Integer replaceColor) {
-            this.searchColor = searchColor;
-            this.replaceColor = replaceColor;
-        }
-
-        public void setWhiteMode(boolean whiteMode) {
-            this.whiteMode = whiteMode;
-        }
-
-        @Override
-        public void startDocument() throws SAXException {
-            // Set up prior to parsing a doc
-        }
-
-        @Override
-        public void endDocument() throws SAXException {
-            // Clean up after parsing a doc
-        }
-
-        private boolean doFill(Properties atts, HashMap<String, Shader> gradients) {
-            if ("none".equals(atts.getString("display"))) {
-                return false;
-            }
-            if (whiteMode) {
-                paint.setStyle(Paint.Style.FILL);
-                paint.setColor(0xFFFFFFFF);
-                return true;
-            }
-            String fillString = atts.getString("fill");
-            if (fillString != null && fillString.startsWith("url(#")) {
-                // It's a gradient fill, look it up in our map
-                String id = fillString.substring("url(#".length(), fillString.length() - 1);
-                Shader shader = gradients.get(id);
-                if (shader != null) {
-                    //Util.debug("Found shader!");
-                    paint.setShader(shader);
-                    paint.setStyle(Paint.Style.FILL);
-                    return true;
-                } else {
-                    //Util.debug("Didn't find shader!");
-                    return false;
-                }
-            } else {
-                paint.setShader(null);
-                Integer color = atts.getHex("fill");
-                if (color != null) {
-                    doColor(atts, color, true);
-                    paint.setStyle(Paint.Style.FILL);
-                    return true;
-                } else if (atts.getString("fill") == null && atts.getString("stroke") == null) {
-                    // Default is black fill
-                    paint.setStyle(Paint.Style.FILL);
-                    paint.setColor(0xFF000000);
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private boolean doStroke(Properties atts) {
-            if (whiteMode) {
-                // Never stroke in white mode
-                return false;
-            }
-            if ("none".equals(atts.getString("display"))) {
-                return false;
-            }
-            Integer color = atts.getHex("stroke");
-            if (color != null) {
-                doColor(atts, color, false);
-                // Check for other stroke attributes
-                Float width = atts.getFloat("stroke-width");
-                // Set defaults
-
-                if (width != null) {
-                    paint.setStrokeWidth(width);
-                }
-                String linecap = atts.getString("stroke-linecap");
-                if ("round".equals(linecap)) {
-                    paint.setStrokeCap(Paint.Cap.ROUND);
-                } else if ("square".equals(linecap)) {
-                    paint.setStrokeCap(Paint.Cap.SQUARE);
-                } else if ("butt".equals(linecap)) {
-                    paint.setStrokeCap(Paint.Cap.BUTT);
-                }
-                String linejoin = atts.getString("stroke-linejoin");
-                if ("miter".equals(linejoin)) {
-                    paint.setStrokeJoin(Paint.Join.MITER);
-                } else if ("round".equals(linejoin)) {
-                    paint.setStrokeJoin(Paint.Join.ROUND);
-                } else if ("bevel".equals(linejoin)) {
-                    paint.setStrokeJoin(Paint.Join.BEVEL);
-                }
-                paint.setStyle(Paint.Style.STROKE);
-                return true;
-            }
-            return false;
-        }
-
-        private Gradient doGradient(boolean isLinear, Attributes atts) {
-            Gradient gradient = new Gradient();
-            gradient.id = getStringAttr("id", atts);
-            gradient.isLinear = isLinear;
-            if (isLinear) {
-                gradient.x1 = getFloatAttr("x1", atts, 0f);
-                gradient.x2 = getFloatAttr("x2", atts, 0f);
-                gradient.y1 = getFloatAttr("y1", atts, 0f);
-                gradient.y2 = getFloatAttr("y2", atts, 0f);
-            } else {
-                gradient.x = getFloatAttr("cx", atts, 0f);
-                gradient.y = getFloatAttr("cy", atts, 0f);
-                gradient.radius = getFloatAttr("r", atts, 0f);
-            }
-            String transform = getStringAttr("gradientTransform", atts);
-            if (transform != null) {
-                gradient.matrix = parseTransform(transform);
-            }
-            String xlink = getStringAttr("href", atts);
-            if (xlink != null) {
-                if (xlink.startsWith("#")) {
-                    xlink = xlink.substring(1);
-                }
-                gradient.xlink = xlink;
-            }
-            return gradient;
-        }
-
-        private void doColor(Properties atts, Integer color, boolean fillMode) {
-            int c = (0xFFFFFF & color) | 0xFF000000;
-            if (searchColor != null && searchColor.intValue() == c) {
-                c = replaceColor;
-            }
-            paint.setColor(c);
-            Float opacity = atts.getFloat("opacity");
-            if (opacity == null) {
-                opacity = atts.getFloat(fillMode ? "fill-opacity" : "stroke-opacity");
-            }
-            if (opacity == null) {
-                paint.setAlpha(255);
-            } else {
-                paint.setAlpha((int) (255 * opacity));
-            }
-        }
-
-        private boolean hidden = false;
-        private int hiddenLevel = 0;
-        private boolean boundsMode = false;
-
-        private void doLimits(float x, float y) {
-            if (x < limits.left) {
-                limits.left = x;
-            }
-            if (x > limits.right) {
-                limits.right = x;
-            }
-            if (y < limits.top) {
-                limits.top = y;
-            }
-            if (y > limits.bottom) {
-                limits.bottom = y;
-            }
-        }
-
-        private void doLimits(float x, float y, float width, float height) {
-            doLimits(x, y);
-            doLimits(x + width, y + height);
-        }
-
-        private void doLimits(Path path) {
-            path.computeBounds(rect, false);
-            doLimits(rect.left, rect.top);
-            doLimits(rect.right, rect.bottom);
-        }
-
-        private void pushTransform(Attributes atts) {
-            final String transform = getStringAttr("transform", atts);
-            pushed = transform != null;
-            if (pushed) {
-                final Matrix matrix = parseTransform(transform);
-                canvas.save();
-                canvas.concat(matrix);
-            }
-        }
-
-        private void popTransform() {
-            if (pushed) {
-                canvas.restore();
-            }
-        }
-
-        @Override
-        public void startElement(String namespaceURI, String localName, String qName, Attributes atts) throws SAXException {
-            // Reset paint opacity
-			Log.w(TAG, "startElement start");
-            paint.setAlpha(255);
-            // Ignore everything but rectangles in bounds mode
-			Log.w(TAG, "localName: "+localName);			
-            if (boundsMode) {
-                if (localName.equals("rect")) {
-                    Float x = getFloatAttr("x", atts);
-                    if (x == null) {
-                        x = 0f;
-                    }
-                    Float y = getFloatAttr("y", atts);
-                    if (y == null) {
-                        y = 0f;
-                    }
-                    Float width = getFloatAttr("width", atts);
-                    Float height = getFloatAttr("height", atts);
-                    bounds = new RectF(x, y, x + width, y + width);
-                }
-                return;
-            }
-            if (localName.equals("svg")) {
-				Float widthf = getFloatAttr("width", atts);
-				Float heightf = getFloatAttr("height", atts);
-				if(widthf != null && heightf != null) {
-                	int width = (int) Math.ceil(widthf);
-                	int height = (int) Math.ceil(heightf);
-                	canvas = picture.beginRecording(width, height);
-				}
-				else {
-                	canvas = picture.beginRecording(this.width, this.height);
-				}
-            } else if (localName.equals("defs")) {
-                // Ignore
-            } else if (localName.equals("linearGradient")) {
-                gradient = doGradient(true, atts);
-            } else if (localName.equals("radialGradient")) {
-                gradient = doGradient(false, atts);
-            } else if (localName.equals("stop")) {
-                if (gradient != null) {
-                    float offset = getFloatAttr("offset", atts);
-                    String styles = getStringAttr("style", atts);
-                    int color = 0;
-                    if(styles!=null) {
-	                    StyleSet styleSet = new StyleSet(styles);
-	                    String colorStyle = styleSet.getStyle("stop-color");
-	                    color = getColor(colorStyle);
-	                    String opacityStyle = styleSet.getStyle("stop-opacity");
-	                    if (opacityStyle != null) {
-	                        float alpha = Float.parseFloat(opacityStyle);
-	                        int alphaInt = Math.round(255 * alpha);
-	                        color |= (alphaInt << 24);
-	                    } else {
-	                        color |= 0xFF000000;
-	                    }
-                    }
-                    gradient.positions.add(offset);
-                    gradient.colors.add(color);
-                }
-            } else if (localName.equals("g")) {
-                // Check to see if this is the "bounds" layer
-                if ("bounds".equalsIgnoreCase(getStringAttr("id", atts))) {
-                    boundsMode = true;
-                }
-                if (hidden) {
-                    hiddenLevel++;
-                    //Util.debug("Hidden up: " + hiddenLevel);
-                }
-                // Go in to hidden mode if display is "none"
-                if ("none".equals(getStringAttr("display", atts))) {
-                    if (!hidden) {
-                        hidden = true;
-                        hiddenLevel = 1;
-                        //Util.debug("Hidden up: " + hiddenLevel);
-                    }
-                }
-            } else if (!hidden && localName.equals("rect")) {
-                Float x = getFloatAttr("x", atts);
-                if (x == null) {
-                    x = 0f;
-                }
-                Float y = getFloatAttr("y", atts);
-                if (y == null) {
-                    y = 0f;
-                }
-                Float width = getFloatAttr("width", atts);
-                Float height = getFloatAttr("height", atts);
-                pushTransform(atts);
-                Properties props = new Properties(atts);
-                if (doFill(props, gradientMap)) {
-                    doLimits(x, y, width, height);
-                    canvas.drawRect(x, y, x + width, y + height, paint);
-                }
-                if (doStroke(props)) {
-                    canvas.drawRect(x, y, x + width, y + height, paint);
-                }
-                popTransform();
-            } else if (!hidden && localName.equals("line")) {
-                Float x1 = getFloatAttr("x1", atts);
-                Float x2 = getFloatAttr("x2", atts);
-                Float y1 = getFloatAttr("y1", atts);
-                Float y2 = getFloatAttr("y2", atts);
-                Properties props = new Properties(atts);
-                if (doStroke(props)) {
-                    pushTransform(atts);
-                    doLimits(x1, y1);
-                    doLimits(x2, y2);
-                    canvas.drawLine(x1, y1, x2, y2, paint);
-                    popTransform();
-                }
-            } else if (!hidden && localName.equals("circle")) {
-                Float centerX = getFloatAttr("cx", atts);
-                Float centerY = getFloatAttr("cy", atts);
-                Float radius = getFloatAttr("r", atts);
-                if (centerX != null && centerY != null && radius != null) {
-                    pushTransform(atts);
-                    Properties props = new Properties(atts);
-                    if (doFill(props, gradientMap)) {
-                        doLimits(centerX - radius, centerY - radius);
-                        doLimits(centerX + radius, centerY + radius);
-                        canvas.drawCircle(centerX, centerY, radius, paint);
-                    }
-                    if (doStroke(props)) {
-                        canvas.drawCircle(centerX, centerY, radius, paint);
-                    }
-                    popTransform();
-                }
-            } else if (!hidden && localName.equals("ellipse")) {
-                Float centerX = getFloatAttr("cx", atts);
-                Float centerY = getFloatAttr("cy", atts);
-                Float radiusX = getFloatAttr("rx", atts);
-                Float radiusY = getFloatAttr("ry", atts);
-                if (centerX != null && centerY != null && radiusX != null && radiusY != null) {
-                    pushTransform(atts);
-                    Properties props = new Properties(atts);
-                    rect.set(centerX - radiusX, centerY - radiusY, centerX + radiusX, centerY + radiusY);
-                    if (doFill(props, gradientMap)) {
-                        doLimits(centerX - radiusX, centerY - radiusY);
-                        doLimits(centerX + radiusX, centerY + radiusY);
-                        canvas.drawOval(rect, paint);
-                    }
-                    if (doStroke(props)) {
-                        canvas.drawOval(rect, paint);
-                    }
-                    popTransform();
-                }
-            } else if (!hidden && (localName.equals("polygon") || localName.equals("polyline"))) {
-                NumberParse numbers = getNumberParseAttr("points", atts);
-                if (numbers != null) {
-                    Path p = new Path();
-                    ArrayList<Float> points = numbers.numbers;
-                    if (points.size() > 1) {
-                        pushTransform(atts);
-                        Properties props = new Properties(atts);
-                        p.moveTo(points.get(0), points.get(1));
-                        for (int i = 2; i < points.size(); i += 2) {
-                            float x = points.get(i);
-                            float y = points.get(i + 1);
-                            p.lineTo(x, y);
-                        }
-                        // Don't close a polyline
-                        if (localName.equals("polygon")) {
-                            p.close();
-                        }
-                        if (doFill(props, gradientMap)) {
-                            doLimits(p);
-                            canvas.drawPath(p, paint);
-                        }
-                        if (doStroke(props)) {
-                            canvas.drawPath(p, paint);
-                        }
-                        popTransform();
-                    }
-                }
-            } else if (!hidden && localName.equals("path")) {
-                Path p = doPath(getStringAttr("d", atts));
-                pushTransform(atts);
-                Properties props = new Properties(atts);
-                if (doFill(props, gradientMap)) {
-                    doLimits(p);
-                    canvas.drawPath(p, paint);
-                }
-                if (doStroke(props)) {
-                    canvas.drawPath(p, paint);
-                }
-                popTransform();
-            } else if (!hidden) {
-                Log.d(TAG, "UNRECOGNIZED SVG COMMAND: " + localName);
-            }
-			Log.w(TAG, "startElement end");
-        }
-		
-		public int getColor(String color) {
-			int ret = Color.BLACK;
-			if (color != null) {
-				if (color.startsWith("#")) {
-					ret = Integer.parseInt(color.substring(1), 16);
-				} else if (color.equalsIgnoreCase("black")) {
-					ret = Color.BLACK;
-				} else if (color.equalsIgnoreCase("white")) {
-					ret = Color.WHITE;
-				} else if (color.equalsIgnoreCase("blue")) {
-					ret = Color.BLUE;
-				} else if (color.equalsIgnoreCase("yellow")) {
-					ret = Color.YELLOW;
-				} else if (color.equalsIgnoreCase("red")) {
-					ret = Color.RED;
-				} else if (color.equalsIgnoreCase("green")) {
-					ret = Color.GREEN;
-				} else if (color.equalsIgnoreCase("gray")) {
-					ret = Color.GRAY;
-				} else {
-					ret = Integer.parseInt(color, 16);
-				}
-			}
-			return ret;			
-		}
-
-        @Override
-        public void characters(char ch[], int start, int length) {
-            // no-op
-        }
-
-        @Override
-        public void endElement(String namespaceURI, String localName, String qName)
-                throws SAXException {
-            if (localName.equals("svg")) {
-                picture.endRecording();
-            } else if (localName.equals("linearGradient")) {
-                if (gradient.id != null) {
-                    if (gradient.xlink != null) {
-                        Gradient parent = gradientRefMap.get(gradient.xlink);
-                        if (parent != null) {
-                            gradient = parent.createChild(gradient);
-                        }
-                    }
-                    int[] colors = new int[gradient.colors.size()];
-                    for (int i = 0; i < colors.length; i++) {
-                        colors[i] = gradient.colors.get(i);
-                    }
-                    float[] positions = new float[gradient.positions.size()];
-                    for (int i = 0; i < positions.length; i++) {
-                        positions[i] = gradient.positions.get(i);
-                    }
-                    if (colors.length == 0) {
-                        Log.d("BAD", "BAD");
-                    }
-                    LinearGradient g = new LinearGradient(gradient.x1, gradient.y1, gradient.x2, gradient.y2, colors, positions, Shader.TileMode.CLAMP);
-                    if (gradient.matrix != null) {
-                        g.setLocalMatrix(gradient.matrix);
-                    }
-                    gradientMap.put(gradient.id, g);
-                    gradientRefMap.put(gradient.id, gradient);
-                }
-            } else if (localName.equals("radialGradient")) {
-                if (gradient.id != null) {
-                    if (gradient.xlink != null) {
-                        Gradient parent = gradientRefMap.get(gradient.xlink);
-                        if (parent != null) {
-                            gradient = parent.createChild(gradient);
-                        }
-                    }
-                    int[] colors = new int[gradient.colors.size()];
-                    for (int i = 0; i < colors.length; i++) {
-                        colors[i] = gradient.colors.get(i);
-                    }
-                    float[] positions = new float[gradient.positions.size()];
-                    for (int i = 0; i < positions.length; i++) {
-                        positions[i] = gradient.positions.get(i);
-                    }
-                    if (gradient.xlink != null) {
-                        Gradient parent = gradientRefMap.get(gradient.xlink);
-                        if (parent != null) {
-                            gradient = parent.createChild(gradient);
-                        }
-                    }
-                    RadialGradient g = new RadialGradient(gradient.x, gradient.y, gradient.radius, colors, positions, Shader.TileMode.CLAMP);
-                    if (gradient.matrix != null) {
-                        g.setLocalMatrix(gradient.matrix);
-                    }
-                    gradientMap.put(gradient.id, g);
-                    gradientRefMap.put(gradient.id, gradient);
-                }
-            } else if (localName.equals("g")) {
-                if (boundsMode) {
-                    boundsMode = false;
-                }
-                // Break out of hidden mode
-                if (hidden) {
-                    hiddenLevel--;
-                    //Util.debug("Hidden down: " + hiddenLevel);
-                    if (hiddenLevel == 0) {
-                        hidden = false;
-                    }
-                }
-                // Clear gradient map
-                gradientMap.clear();
-            }
-        }
-    }
 }
