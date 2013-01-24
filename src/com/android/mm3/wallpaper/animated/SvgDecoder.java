@@ -230,7 +230,7 @@ public class SvgDecoder extends Decoder {
 	}
 
 	public int getDelay(int n) {
-		return 100;
+		return frame.getDelay();
 	}
 
     public void parse(InputStream in) {
@@ -724,6 +724,8 @@ public class SvgDecoder extends Decoder {
 			ret = new SVGTagRadialGradient(tag, parent);
 		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_STOP)) {
 			ret = new SVGTagStop(tag, parent);
+		} else if(tag.equalsIgnoreCase(SvgDecoder.TAG_SVG_ANIMATE)) {
+			ret = new SVGTagAnimate(tag, parent);
 		} else {
 			ret = new SVGElement(tag, parent);
 		}
@@ -938,7 +940,7 @@ public class SvgDecoder extends Decoder {
 
 		@Override
     	public void drawData(Canvas c) {
-			if(this.centerX != null && this.centerY != null && this.radius != null) {
+			if(this.radius != 0f) {
 				if(this.paintFill != null) {
 					c.drawCircle(this.centerX, this.centerY, this.radius, this.paintFill);
 				}
@@ -1335,6 +1337,11 @@ public class SvgDecoder extends Decoder {
    			gradient.x = getFloatAttr("cx", widthcanvas);
    			gradient.y = getFloatAttr("cy", heightcanvas);
    			gradient.radius = getFloatAttr("r", widthcanvas);
+   			
+   			if(gradient.radius == 0f) {
+   				return;
+   			}
+   			
             String transform = getAttr("gradientTransform");
             if (transform != null) {
                 gradient.matrix = parseTransform(transform);
@@ -1422,6 +1429,25 @@ public class SvgDecoder extends Decoder {
 		}
     }
 
+    public class SVGTagAnimate extends SVGElement{
+
+    	public SVGTagAnimate(String tag, SVGElement parent) {
+			// "animate"
+			super(SvgDecoder.TAG_SVG_ANIMATE, parent);
+		}
+
+		@Override
+    	public void init() {
+			String attributeName = getAttr("attributeName");
+			String from = getAttr("from");
+			String to = getAttr("to");
+			String dur = getAttr("dur");
+			String repeatCount = getAttr("repeatCount");
+			super.init();
+		}
+    }
+
+    
     public class SVGTagStop extends SVGElement{
     	private float offset = 0f;
     	private int color = 0;
@@ -1551,7 +1577,29 @@ public class SvgDecoder extends Decoder {
 		public int getHeight() {
 			return this.height;
 		}
+		
+		public int getDelay() {
+			SVGElement animation = searchAnimation(this);
+			if(animation != null) {
+				return 300;
+			}
+			return Integer.MAX_VALUE;
+		}
 
+		private SVGElement searchAnimation(SVGElement element) {
+			int size = element.getElementsSize();
+    		for(int i = 0; i < size; i++) {
+    			SVGElement e = element.getElement(i);
+    			if(e instanceof SVGGradient) {
+   					return e;
+    			}
+    			SVGElement ret = searchAnimation(e);
+    			if(ret != null) {
+    				return ret;
+    			}
+    		}
+    		return null;
+		}
 
 		@Override
     	public void init() {
