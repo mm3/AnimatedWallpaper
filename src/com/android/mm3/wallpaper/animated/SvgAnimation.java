@@ -14,50 +14,68 @@ public class SvgAnimation extends Animation
 	protected Picture picture = null;
 	protected int counter = 0;
 	protected int maxCount = 0;
+	protected int width = 0;
+	protected int height = 0;
 //	protected Drawable[] drawables = null;
 	protected Paint paint = null;
 	
 	public SvgAnimation(String file, int style, int width, int height){
 		super(style);
-		init(file, width, height);
+		this.width = width;
+		this.height = height;
+		init(file);
 	}
 		
-	public void init(String s, int width, int height) {
-		Log.w(TAG, "SvgAnimation constructor");
-
-		paint = new Paint();
-		paint.setAntiAlias(true);
-
-		InputStream is = null;
-        try {
-			
-            //is = new FileInputStream(s);
-			decoder = new SvgDecoder();
-			//decoder.read(is, width, height);
-			//is.close();
-            is = new FileInputStream(s);
-			decoder.setWidthHeight(width, height);
-			decoder.parse(is);
-			
-			maxCount = decoder.getFrameCount();
-        }
-        catch (Exception e) {
-            Log.e(TAG, "SvgAnimation exeption" + e);
-        }
-		finally {
-			try {
-			    if(is != null) {
-				    is.close();
-				    is = null;
-			    }
-			} catch (Exception e) {}
-		}
-		Log.w(TAG, "SvgAnimation constructor end");
-		
+	public void init(final String s) 
+	{
+		Thread t = new Thread() {
+			@Override
+			public void run() {
+				Log.d(TAG, "SvgAnimation constructor");
+				InputStream is = null;
+		        try {
+		            is = new FileInputStream(s);
+					setDecoder(newDecoder(is));
+		        }
+		        catch (Exception e) {
+		            Log.e(TAG, "SvgAnimation exeption" + e);
+		        }
+				finally {
+					try {
+					    if(is != null) {
+						    is.close();
+						    is = null;
+					    }
+					} catch (Exception e) {}
+				}
+				Log.d(TAG, "SvgAnimation constructor end");
+			}
+		};
+		t.start();
 	}
+	
+	protected SvgDecoder newDecoder(InputStream is) {
+		SvgDecoder decoder = new SvgDecoder();
+		decoder.setWidthHeight(width, height);
+		decoder.parse(is);
+		decoder.setScaling(true);
+		return decoder;
+	}
+
+	
+	private void setDecoder(SvgDecoder decoder) {
+		this.maxCount = decoder.getFrameCount();
+		this.decoder = decoder;
+		this.counter = 0;
+	}
+
 	
 	public void draw (Canvas c)
 	{
+		if(decoder == null) {
+			return;
+		}
+		
 		if(counter >= maxCount) {
 			counter = 0;
 		}
@@ -70,7 +88,7 @@ public class SvgAnimation extends Animation
 	
 	public int getDelay() 
 	{
-		return decoder.getDelay(counter);
+		return (decoder == null) ? 100 : decoder.getDelay(counter);
 	}
 	
 }

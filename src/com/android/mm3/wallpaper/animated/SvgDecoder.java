@@ -33,6 +33,8 @@ public class SvgDecoder extends Decoder {
 	
 	private int width = 0;
 	private int height = 0;
+	private float scale = 1f;
+	private boolean scaling = false;
 	
 	// structural elements
 	public static final String TAG_SVG                   = "svg";
@@ -213,7 +215,29 @@ public class SvgDecoder extends Decoder {
     	}
 		return localHeight;
 	}
-	
+    
+    public float getScale() {
+    	return (scaling) ? this.scale : 1f;
+    }
+
+    public void setScale(float scale) {
+    	this.scale = scale;
+    }
+    
+    public void setScaling(boolean scaling) {
+		boolean old = this.scaling;
+    	this.scaling = scaling;
+    	if(old != scaling) {
+    		RectF rect = frame.getBounds();
+    		float width = (float)getWidth();
+    		float height = (float)getHeight();
+    		float scale = Math.min(Math.abs(width / rect.right), Math.abs(height / rect.bottom));
+    		setScale(scale);
+    		frame.init();
+    	}
+    }
+
+    
 	public Picture getFramePicture(int n) {
 		if (frameCount <= 0)
 			return null;
@@ -343,46 +367,30 @@ public class SvgDecoder extends Decoder {
             char c = s.charAt(i);
             switch (c) {
                 // This ends the parsing, as we are on the next element
-                case 'M':
-                case 'm':
-                case 'Z':
-                case 'z':
-                case 'L':
-                case 'l':
-                case 'H':
-                case 'h':
-                case 'V':
-                case 'v':
-                case 'C':
-                case 'c':
-                case 'S':
-                case 's':
-                case 'Q':
-                case 'q':
-                case 'T':
-                case 't':
-                case 'a':
-                case 'A':
+                case 'M': case 'm': case 'Z': case 'z':
+                case 'L': case 'l': case 'H': case 'h':
+                case 'V': case 'v': case 'C': case 'c':
+                case 'S': case 's': case 'Q': case 'q':
+                case 'T': case 't': case 'a': case 'A':
                 case ')': {
                     String str = s.substring(p, i);
                     if (str.trim().length() > 0) {
                         //Util.debug("  Last: " + str);
                         Float f = Float.parseFloat(str);
+                        f = f * getScale();
                         numbers.add(f);
                     }
                     p = i;
                     return new NumberParse(numbers);
                 }
-                case '\n':
-                case '\t':
-                case ' ':
-                case ',':
+                case '\n': case '\t': case ' ': case ',':
                 case '-': {
                     String str = s.substring(p, i);
                     // Just keep moving if multiple whitespace
                     if (str.trim().length() > 0) {
                         //Util.debug("  Next: " + str);
                         Float f = Float.parseFloat(str);
+                        f = f * getScale();
                         numbers.add(f);
                         if (c == '-') {
                             p = i;
@@ -401,7 +409,9 @@ public class SvgDecoder extends Decoder {
         if (last.length() > 0) {
             //Util.debug("  Last: " + last);
             try {
-                numbers.add(Float.parseFloat(last));
+            	Float f = Float.parseFloat(last);
+            	f = f * getScale();
+                numbers.add(f);
             } catch (NumberFormatException nfe) {
                 // Just white-space, forget it
             }
@@ -417,17 +427,11 @@ public class SvgDecoder extends Decoder {
                 Matrix matrix = new Matrix();
                 matrix.setValues(new float[]{
                         // Row 1
-                        np.numbers.get(0),
-                        np.numbers.get(2),
-                        np.numbers.get(4),
+                        np.numbers.get(0), np.numbers.get(2), np.numbers.get(4),
                         // Row 2
-                        np.numbers.get(1),
-                        np.numbers.get(3),
-                        np.numbers.get(5),
+                        np.numbers.get(1), np.numbers.get(3), np.numbers.get(5),
                         // Row 3
-                        0,
-                        0,
-                        1,
+                        0,                 0,                 1,
                 });
                 return matrix;
             }
@@ -527,18 +531,10 @@ public class SvgDecoder extends Decoder {
         while (ph.pos < n) {
             char cmd = s.charAt(ph.pos);
             switch (cmd) {
-                case '-':
-                case '+':
-                case '0':
-                case '1':
-                case '2':
-                case '3':
-                case '4':
-                case '5':
-                case '6':
-                case '7':
-                case '8':
-                case '9':
+                case '-': case '+': case '0':
+                case '1': case '2': case '3':
+                case '4': case '5': case '6':
+                case '7': case '8': case '9':
                     if (prevCmd == 'm' || prevCmd == 'M') {
                         cmd = (char) (((int) prevCmd) - 1);
                         break;
@@ -697,7 +693,9 @@ public class SvgDecoder extends Decoder {
     }
 
     private void drawArc(Path p, float lastX, float lastY, float x, float y, float rx, float ry, float theta, int largeArc, int sweepArc) {
-        // todo - not implemented yet, may be very hard to do using Android drawing facilities.
+        //p.arcTo(RectF oval, float startAngle, float sweepAngle, boolean forceMoveTo);
+
+    	// todo - not implemented yet, may be very hard to do using Android drawing facilities.
     }
     
     private SVGElement getElementByTag(String tag, SVGElement parent) {
@@ -732,16 +730,26 @@ public class SvgDecoder extends Decoder {
 		return ret;
     }
 
-    
-    public static Float strToFloat(String str) {
+    public Float strToColor(String str) {
         try {
-        	return Float.parseFloat(str);
+        	Float f = Float.parseFloat(str);
+        	return f;
+        } catch (Exception nfe) {
+            return null;
+        }
+    }
+    
+    public Float strToFloat(String str) {
+        try {
+        	Float f = Float.parseFloat(str);
+        	f = f * getScale();
+        	return f;
         } catch (Exception nfe) {
             return null;
         }
     }
 
-    public static Float attrToFloat(String str, Float bound) {
+    public Float attrToFloat(String str, Float bound) {
         try {
         	boolean percent = false;
         	String v = str;
@@ -754,8 +762,9 @@ public class SvgDecoder extends Decoder {
     		}
             Float ret = Float.parseFloat(v);
             if(percent) {
-            	ret = ret * bound / 100;
+            	ret = ret * bound / 100f;
             }
+            ret = ret * getScale();
 
         	return ret;
         } catch (Exception nfe) {
@@ -809,6 +818,7 @@ public class SvgDecoder extends Decoder {
     		this.x2 = getFloatAttr("x2", widthcanvas);
     		this.y1 = getFloatAttr("y1", heightcanvas);
     		this.y2 = getFloatAttr("y2", heightcanvas);
+    		setBounds(this.x1, this.y1, this.x2, this.y2);
 			super.init();
 		}
 
@@ -849,6 +859,9 @@ public class SvgDecoder extends Decoder {
                         p.lineTo(x, y);
                     }
                     this.path = p;
+                    RectF rect = new RectF();
+                    this.path.computeBounds(rect, false);
+                    setBounds(rect.left, rect.top, rect.right, rect.bottom);
                 }
             }
 
@@ -897,6 +910,9 @@ public class SvgDecoder extends Decoder {
                     }
                     p.close();
                     this.path = p;
+                    RectF rect = new RectF();
+                    this.path.computeBounds(rect, false);
+                    setBounds(rect.left, rect.top, rect.right, rect.bottom);
                 }
             }
 
@@ -935,6 +951,10 @@ public class SvgDecoder extends Decoder {
     		this.centerX = getFloatAttr("cx", widthcanvas);
     		this.centerY = getFloatAttr("cy", heightcanvas);
     		this.radius = getFloatAttr("r", widthcanvas);
+    		setBounds(this.centerX - this.radius, 
+    	    		  this.centerY - this.radius, 
+    	    		  this.centerX + this.radius, 
+    	    		  this.centerY + this.radius);
 			super.init();
 		}
 
@@ -972,6 +992,7 @@ public class SvgDecoder extends Decoder {
     		if (centerX != null && centerY != null && radiusX != null && radiusY != null) {
     			this.rect = new RectF();
     			this.rect.set(centerX - radiusX, centerY - radiusY, centerX + radiusX, centerY + radiusY);
+    			setBounds(centerX - radiusX, centerY - radiusY, centerX + radiusX, centerY + radiusY);
     		}
 
 			super.init();
@@ -1016,6 +1037,7 @@ public class SvgDecoder extends Decoder {
     		this.width = getFloatAttr("width", widthcanvas);
     		this.height = getFloatAttr("height", heightcanvas);
     		this.bounds = new RectF(this.x, this.y, this.x + this.width, this.y + this.width);
+    		setBounds(this.x, this.y, this.x + this.width, this.y + this.width);
 			super.init();
 		}
 
@@ -1051,6 +1073,9 @@ public class SvgDecoder extends Decoder {
 			final String d = getAttr("d");
 			if(d != null) {
 				this.path = parsePath(d);
+                RectF rect = new RectF();
+                this.path.computeBounds(rect, false);
+                setBounds(rect.left, rect.top, rect.right, rect.bottom);
 			}
 			super.init();
 		}
@@ -1135,10 +1160,10 @@ public class SvgDecoder extends Decoder {
                     int c = (0xFFFFFF & color) | 0xFF000000;
                     paint.setColor(c);
                     String opacitystr = getStyleAttr("opacity");
-                    Float opacity = SvgDecoder.strToFloat(opacitystr);
+                    Float opacity = strToColor(opacitystr);
 
                     if (opacity == null) {
-                        opacity = SvgDecoder.strToFloat(getStyleAttr("fill-opacity"));
+                        opacity = strToColor(getStyleAttr("fill-opacity"));
                     }
                     if (opacity == null) {
                     	paint.setAlpha(255);
@@ -1168,10 +1193,10 @@ public class SvgDecoder extends Decoder {
                 int c = (0xFFFFFF & color) | 0xFF000000;
                 paint.setColor(c);
                 String opacitystr = getStyleAttr("opacity");
-                Float opacity = SvgDecoder.strToFloat(opacitystr);
+                Float opacity = strToColor(opacitystr);
 
                 if (opacity == null) {
-                    opacity = SvgDecoder.strToFloat(getStyleAttr("stroke-opacity"));
+                    opacity = strToColor(getStyleAttr("stroke-opacity"));
                 }
                 if (opacity == null) {
                 	paint.setAlpha(255);
@@ -1179,7 +1204,7 @@ public class SvgDecoder extends Decoder {
                 	paint.setAlpha((int) (255 * opacity));
                 }
                 // Check for other stroke attributes
-                Float width = SvgDecoder.strToFloat(getStyleAttr("stroke-width"));
+                Float width = strToFloat(getStyleAttr("stroke-width"));
                 // Set defaults
 
                 if (width != null) {
@@ -1528,6 +1553,12 @@ public class SvgDecoder extends Decoder {
     	
     	private int width = 0;
     	private int height = 0;
+    	private float x1 = Float.POSITIVE_INFINITY;
+    	private float y1 = Float.POSITIVE_INFINITY;
+    	private float x2 = Float.NEGATIVE_INFINITY;
+    	private float y2 = Float.NEGATIVE_INFINITY;
+    	
+    	private Vector<SVGElement> animation = null;
     	
 		public SVG(String tag, SVGElement parent) {
 			super(SvgDecoder.TAG_SVG, parent);
@@ -1579,26 +1610,45 @@ public class SvgDecoder extends Decoder {
 		}
 		
 		public int getDelay() {
-			SVGElement animation = searchAnimation(this);
-			if(animation != null) {
+			if(this.animation == null) {
+				this.animation = new Vector<SVGElement>();
+				searchAnimation(this, animation);
+			}
+			if(animation.size() > 0) {
 				return 300;
 			}
 			return Integer.MAX_VALUE;
 		}
-
-		private SVGElement searchAnimation(SVGElement element) {
+		
+		private void searchAnimation(SVGElement element, Vector<SVGElement> anim) {
 			int size = element.getElementsSize();
     		for(int i = 0; i < size; i++) {
     			SVGElement e = element.getElement(i);
-    			if(e instanceof SVGGradient) {
-   					return e;
+    			if(e instanceof SVGTagAnimate) {
+    				anim.add(e);
     			}
-    			SVGElement ret = searchAnimation(e);
-    			if(ret != null) {
-    				return ret;
-    			}
+    			searchAnimation(e, anim);
     		}
-    		return null;
+		}
+
+		@Override
+		public void setBounds(float x1, float y1, float x2, float y2) {
+			if (x1 < this.x1) {
+				this.x1 = x1;
+            }
+            if (x2 > this.x2) {
+            	this.x2 = x2;
+            }
+            if (y1 < this.y1) {
+            	this.y1 = y1;
+            }
+            if (y2 > this.y2) {
+            	this.y2 = y2;
+            }
+		}
+		
+		public RectF getBounds() {
+			return new RectF(this.x1, this.y1, this.x2, this.y2);
 		}
 
 		@Override
@@ -1653,9 +1703,14 @@ public class SvgDecoder extends Decoder {
     	public Float getFloatAttr(String attr, Float bound) {
     		String str = getAttr(attr);
     		if(str != null) {
-    			return SvgDecoder.attrToFloat(str, bound);
+    			return attrToFloat(str, bound);
     		} 
     		return 0f;
+    	}
+    	
+    	public void setBounds(float x1, float y1, float x2, float y2) {
+    		SVGElement e = getRoot();
+    		e.setBounds(x1, y1, x2, y2);
     	}
     	
     	
@@ -2044,6 +2099,7 @@ public class SvgDecoder extends Decoder {
 		public float nextFloat() {
 			skipWhitespace();
 			float f = parseFloat();
+			f = f * getScale();
 			skipNumberSeparator();
 			return f;
 		}
