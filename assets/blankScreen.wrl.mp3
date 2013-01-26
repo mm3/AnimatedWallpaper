@@ -1,0 +1,93 @@
+#VRML V2.0 utf8
+
+    Background {
+        skyAngle        [ 1.07 1.45 1.52 1.57 ]
+        skyColor        [ 0.00 0.00 0.00
+                          0.00 0.00 0.00
+                          0.2 0.00 0.00
+                          0.70 0.50 0.00
+                          1.00 0.500 0.00 ]
+        groundAngle     1.57
+        groundColor     [ 0.0 0.0 0.0, 0.0 0.3 0.0 ]
+    }
+
+    Viewpoint {
+        description "one"
+        position 0 0 10
+        orientation 0 1 0 0
+    }
+
+    Viewpoint {
+        description "one"
+        position 0 0 30
+        orientation 0 1 0 0
+    }
+
+    Viewpoint {
+        description "two"
+        position 8.660254 0 -5
+        orientation 0 1 0 2.0943951
+    }
+
+    Viewpoint {
+        description "three"
+        position -8.660254 0 -5
+        orientation 0 1 0 4.1887902
+    }
+    Viewpoint {
+        description "four"
+        position 0 20 0
+        orientation 1 0 0 -1.57
+    }
+
+DEF OPENTEXT Transform { translation  0 3 -5  children [
+Shape {appearance Appearance {material Material {diffuseColor 0.0 1.0 1.0}}
+        geometry Text {
+                string ["Choose a new VRML/X3D" "file with the menu" "New button"]
+		fontStyle FontStyle{
+			justify ["MIDDLE","MIDDLE","MIDDLE"]
+			size 0.5
+		}
+        }
+}
+]}
+
+
+Transform {
+        rotation 1 0 0 0.4
+        translation 0 -2 3
+        children [
+                DEF BOX Transform { children Shape {
+                        appearance Appearance {
+                                material Material { }
+				texture ImageTexture {url "startupImage.jpg"}
+                        }
+                        geometry Box { }
+                }
+        }
+
+        ]
+}
+
+
+# Animation clock
+        DEF Clock TimeSensor {
+                cycleInterval 6.0
+                loop TRUE
+        },
+
+# Animation path
+
+        DEF ColumnPath OrientationInterpolator {
+                key [ 0.0 0.5 1.0 ]
+                keyValue [
+                        0.0 1.0 0.0 6.28,
+                        0.0 1.0 0.0 3.14,
+                        0.0 1.0 0.0 0.0,
+                ]
+}
+
+ROUTE Clock.fraction_changed TO ColumnPath.set_fraction
+ROUTE ColumnPath.value_changed TO BOX.set_rotation
+ROUTE ColumnPath.value_changed TO OPENTEXT.set_rotation
+

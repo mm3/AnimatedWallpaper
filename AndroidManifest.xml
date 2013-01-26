@@ -2,10 +2,14 @@
     package="com.android.mm3.wallpaper.animated"
     android:versionCode="1"
     android:versionName="1.0" >
-	<uses-feature android:name="android.software.live_wallpaper" />
-    
+
+    <uses-feature android:name="android.software.live_wallpaper" />
+
+ 	<!-- Tell the system this app requires OpenGL ES 2.0. -->
+    <uses-feature android:glEsVersion="0x00020000" android:required="true" />
+
     <uses-sdk
-        android:minSdkVersion="7"
+        android:minSdkVersion="8"
         android:targetSdkVersion="15" />
 
     <application
@@ -52,5 +56,12 @@
 			<action android:name="android.intent.action.MAIN" />
 			</intent-filter>
         </activity>
-    </application>
+        <activity
+            android:name=".FreeWRLActivity"
+            android:label="@string/title_view_picture" >
+			<intent-filter>
+			<action android:name="android.intent.action.MAIN" />
+			</intent-filter>
+        </activity>
+        </application>
 </manifest>

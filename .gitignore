@@ -1,4 +1,6 @@
 .gitignore
 .classpath
+.settings/
 bin/
 gen/
+obj/
