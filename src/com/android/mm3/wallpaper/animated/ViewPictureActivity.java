@@ -92,23 +92,22 @@ public class ViewPictureActivity extends Activity {
 			}
 			else if(file.isFile()) {
 				Log.w(TAG, "file is valide");
-				if(file.getName().endsWith(".gif"))
-				{
+				if(file.getName().endsWith(".gif")) {
 					animation = new GifAnimation(path, Animation.STYLE_CENTRED);
-				}
-				else if(file.getName().endsWith(".png") || file.getName().endsWith(".apng"))
-				{
+				} else if(file.getName().endsWith(".png") || 
+						   file.getName().endsWith(".apng"))  {
 					animation = new ApngAnimation(path, Animation.STYLE_CENTRED);
-				}
-				else if(file.getName().endsWith(".svg"))
-				{
+				} else if(file.getName().endsWith(".jpg") || 
+						   file.getName().endsWith(".jpeg") || 
+						   file.getName().endsWith(".bmp"))  {
+					animation = new StaticAnimation(path, Animation.STYLE_CENTRED);
+				} else if(file.getName().endsWith(".svg")) {
 					DisplayMetrics dm = new DisplayMetrics();
 					getWindowManager().getDefaultDisplay().getMetrics(dm);
 					final int height = dm.heightPixels;
 					final int width = dm.widthPixels;
 					animation = new SvgAnimation(path, Animation.STYLE_CENTRED, width, height);
-				}
-				else {
+				} else {
 					animation = defaultAnimation;					
 				}
 			}

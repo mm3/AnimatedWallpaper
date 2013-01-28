@@ -4,6 +4,8 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.Arrays;
+import java.util.Comparator;
 
 import android.app.Activity;
 import android.content.Context;
@@ -16,6 +18,7 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.DisplayMetrics;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,6 +28,7 @@ import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.GridView;
 import android.widget.ImageView;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.os.*;
 
@@ -50,16 +54,44 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
                 save(root.getAbsolutePath());
             }
         });
+		
+		DisplayMetrics dm = new DisplayMetrics();
+		getWindowManager().getDefaultDisplay().getMetrics(dm);
+		final int height = dm.heightPixels;
+		final int width = dm.widthPixels;
+        RelativeLayout.LayoutParams lp = new RelativeLayout.LayoutParams(width, height);
+        lp.addRule(RelativeLayout.ABOVE, R.id.button_layout);
+        this.listView.setLayoutParams(lp);
 	}
+	
+	@Override
+	public void onDestroy() {
+		super.onDestroy();
+		SharedPreferences p = getSharedPreferences(AnimatedWallpaperService.SHARED_PREFERENCES_NAME, 0);
+		SharedPreferences.Editor editor = p.edit();
+		if(this.root.getParent() != null) {
+			editor.putString("root_folder", this.root.getAbsolutePath());
+		} else {
+			editor.remove("root_folder");
+		}
+		editor.commit();
+	}
+
 	
 	protected void init(GridView listView) {
 		folder_img = this.getResources().getDrawable(R.drawable.ic_folder_item);
 		file_img = this.getResources().getDrawable(R.drawable.ic_file_icon);
 		image_img = this.getResources().getDrawable(R.drawable.ic_image_item);
 		
-		this.root = Environment.getExternalStorageDirectory();
-		if(this.root == null) {
-			this.root = Environment.getDataDirectory();
+		SharedPreferences p = getSharedPreferences(AnimatedWallpaperService.SHARED_PREFERENCES_NAME, 0);
+		String folder = p.getString( "root_folder", null );
+		if(folder != null) {
+			this.root = new File(folder);
+		} else {
+			this.root = Environment.getExternalStorageDirectory();
+			if(this.root == null) {
+				this.root = Environment.getDataDirectory();
+			}
 		}
 		this.listView = listView;
 		this.listView.setAdapter(new FileViewAdapret(this, this.root));
@@ -69,9 +101,13 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 	
 	private static boolean isImage(String t) {
 		return t.endsWith(".gif") ||
-		       t.endsWith(".jpg") ||
-			   t.endsWith(".png") ||
-			   t.endsWith(".svg");
+			    t.endsWith(".png") ||
+			    t.endsWith(".x3d") ||
+			    t.endsWith(".wrl") ||
+		        t.endsWith(".bmp") ||
+		        t.endsWith(".jpg") ||
+		        t.endsWith(".jpeg") ||
+		        t.endsWith(".svg");
 	}
 	
 	protected void save(String path) {
@@ -81,6 +117,16 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 		editor.commit();
 		finish();
 	}
+	
+    public class FileComparator implements Comparator<File> {
+		public int compare(File file1, File file2) {
+			if(file1.isDirectory() != file2.isDirectory()) {
+				return file1.isDirectory() ? -1 : 1;
+			}
+			return file1.compareTo( file2 );
+		}
+    }
+
 	
 	public class FileViewAdapret extends BaseAdapter {
 
@@ -93,6 +139,9 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 			this.context = c;
 			this.inflater = LayoutInflater.from(this.context);
 			this.content = root.listFiles();
+    		if(this.content != null) {
+    			Arrays.sort(this.content, new FileComparator());
+    		}
 			this.haveParent = (root.getParent() != null) ? 1 : 0;
 		}
 		
@@ -139,21 +188,6 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 		}
 	}
 
-	@Override
-	public void onItemClick(AdapterView<?> parent, View v, int position, long id) {
-		File f = (File) v.getTag();
-		if(f == null) {
-			this.root = this.root.getParentFile();
-			this.listView.setAdapter(new FileViewAdapret(this, this.root));
-		} else if(f.isDirectory()) {
-			this.root = f;
-			this.listView.setAdapter(new FileViewAdapret(this, this.root));
-		} else {
-			save(f.getAbsolutePath());
-		}
-		
-	}
-	
 	public static class LoadIconTask extends AsyncTask<Object, Void, View> {
 		@Override
 		protected View doInBackground(Object... params) {
@@ -203,26 +237,71 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 		}
 	}
 
+	private static boolean isSupportFile(String t) {
+		String tt = t.toLowerCase();
+		return tt.endsWith(".gif") ||
+			    tt.endsWith(".png") ||
+			    tt.endsWith(".x3d") ||
+			    tt.endsWith(".wrl") ||
+		        tt.endsWith(".bmp") ||
+		        tt.endsWith(".jpg") ||
+		        tt.endsWith(".jpeg") ||
+			    tt.endsWith(".svg");
+	}
+
+	private void startStandartViewer(File f) {
+		Intent intent = new Intent();
+		intent.setAction(android.content.Intent.ACTION_VIEW);
+		Uri uri = Uri.fromFile(f);
+		String name = f.getName();
+		MimeTypeMap mime = MimeTypeMap.getSingleton();
+        String ext=name.substring(name.indexOf(".")+1).toLowerCase();
+        String type = mime.getMimeTypeFromExtension(ext);
+		intent.setDataAndType(uri, type);
+		try {
+			startActivity(intent);
+		} catch(Exception e) {
+			intent.setDataAndType(uri, "*/*");
+			startActivity(intent);
+		}
+	}
+	
+	@Override
+	public void onItemClick(AdapterView<?> parent, View v, int position, long id) {
+		File f = (File) v.getTag();
+		if(f == null) {
+			this.root = this.root.getParentFile();
+			this.listView.setAdapter(new FileViewAdapret(this, this.root));
+		} else if(f.isDirectory()) {
+			this.root = f;
+			this.listView.setAdapter(new FileViewAdapret(this, this.root));
+		} else {
+			if(isSupportFile(f.getName())) {
+				save(f.getAbsolutePath());
+			} else {
+				startStandartViewer(f);
+			}
+		}
+	}
+	
 	@Override
 	public boolean onItemLongClick(AdapterView<?> parent, View view, int position, long id) {
 		File f = (File) view.getTag();
 		if(f != null && f.isFile()) {
-			Intent intent = new Intent();
-			intent.setAction(android.content.Intent.ACTION_VIEW);
-			Uri uri = Uri.fromFile(f);
-			String name = f.getName();
-			MimeTypeMap mime = MimeTypeMap.getSingleton();
-            String ext=name.substring(name.indexOf(".")+1).toLowerCase();
-            String type = mime.getMimeTypeFromExtension(ext);
-			intent.setDataAndType(uri, type);
-			try {
-				startActivity(intent);
-			} catch(Exception e) {
-				intent.setDataAndType(uri, "*/*");
-				startActivity(intent);
-			}
+			startStandartViewer(f);
 			return true;
 		}
 		return false;
 	}
+	
+	@Override
+    public void onBackPressed() {
+		File parent = this.root.getParentFile();
+		if(parent != null) {
+			this.root = parent;
+			this.listView.setAdapter(new FileViewAdapret(this, this.root));
+		} else {
+			super.onBackPressed();
+		}
+    }
 }

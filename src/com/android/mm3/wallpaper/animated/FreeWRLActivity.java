@@ -49,6 +49,8 @@ import android.widget.TextView;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import java.util.List;
+
+import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.Context;
 
@@ -74,6 +76,8 @@ import android.os.Looper;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+
+import com.android.mm3.wallpaper.animated.ViewPictureActivity.PictureView;
 // end logcat stuff
 
 // for removing local file and console Views
@@ -238,6 +242,10 @@ public boolean onOptionsItemSelected(MenuItem item) {
 	final ConfigurationInfo configurationInfo = activityManager.getDeviceConfigurationInfo();
 	final boolean supportsEs2 = configurationInfo.reqGlEsVersion >= 0x20000;
 
+	Intent i = getIntent();
+	String path = i.getStringExtra("view_picture");
+
+	
 	/*
 	if (supportsEs2) {
 		Log.w(TAG, "supportsEs2 TRUE");
@@ -280,6 +288,9 @@ public boolean onOptionsItemSelected(MenuItem item) {
 		FreeWRLLib.setTmpDir(getApplicationContext().getCacheDir().getAbsolutePath());
 
 		//Log.w(TAG,"cache dir is " + getApplicationContext().getCacheDir().getAbsolutePath());
+		if(path != null) {
+			glView.setPossibleNewFileName(path);
+		}
 	
 		glView.setLoadNewX3DFile();
 	

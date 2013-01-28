@@ -8,6 +8,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
+        android:layout_centerVertical="false"
 		android:gravity="center"
         android:numColumns="3" >
 
@@ -15,11 +16,11 @@
 
     <LinearLayout
         style="@style/AppTheme"
+        android:id="@+id/button_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"
-        android:gravity="center"
         android:orientation="vertical" >
 
         <Button

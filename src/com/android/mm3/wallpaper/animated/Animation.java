@@ -4,6 +4,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.util.Log;
+import android.view.SurfaceHolder;
 
 public class Animation
 {
@@ -126,5 +127,20 @@ public class Animation
 	public int getDelay() 
 	{
 		return 60 * 60 * 1000;
+	}
+	
+	public void onSurfaceCreated(SurfaceHolder holder) {
+	}
+	
+	public void onSurfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+	}
+	
+	public void onSurfaceDestroyed(SurfaceHolder holder) {
+	}
+	
+	public void onVisibilityChanged(boolean v) {
+	}
+
+	public void onDestroy() {
 	}
 }
