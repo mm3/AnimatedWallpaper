@@ -22,7 +22,9 @@ public class GLAnimation extends Animation {
     static FreeWRLAssetData fontAssetDatum_01;
     public static boolean currentlyGettingResource = false;
     private static boolean reloadAssetsRequired = false;
-	//private static String myNewX3DFile = "blankScreen.wrl.mp3";
+	private static String myNewX3DFile = "blankScreen.wrl.mp3";
+	private static boolean loadNewX3DFile = false;
+
 	private GLThread mGLThread = null;
 	private EGLConfigChooser mEGLConfigChooser;
 	private EGLContextFactory mEGLContextFactory;
@@ -33,64 +35,87 @@ public class GLAnimation extends Animation {
     private Context context = null;
 	public GLAnimation(Context c, String s, int style) {
 		super(style);
+		Log.d(TAG,"GLAnimation");
 		init(c, s);
 	}
 	
 	private void init(Context c, String s) {
+		Log.d(TAG,"GLAnimation init");
 		
 		this.context = c;
 		
 		FreeWRLLib.createInstance();
+		Log.d(TAG,"FreeWRLLib.createInstance();");
 		if (fontAsset_01 == null) {
-			//Log.w(TAG,"creating font assets");
+			Log.d(TAG,"creating font assets");
 			fontAsset_01 = new FreeWRLAssets();
 		}
+		Log.d(TAG,"fontAsset_01 = new FreeWRLAssets();");
 		fontAssetDatum_01 = fontAsset_01.openAsset(c.getApplicationContext(),"fonts/Vera.ttf.mp3");
+		Log.d(TAG,"fontAssetDatum_01 = fontAsset_01.openAsset");
 		int res = FreeWRLLib.sendFontFile(01,fontAssetDatum_01.fd, (int) fontAssetDatum_01.offset, fontAssetDatum_01.length);
+		Log.d(TAG,"int res = FreeWRLLib.sendFontFile");
 		FreeWRLLib.setTmpDir(c.getApplicationContext().getCacheDir().getAbsolutePath());
-		FreeWRLLib.initialFile(s);
+		Log.d(TAG,"FreeWRLLib.setTmpDir(c.getApplicationContext().getCacheDir().getAbsolutePath());");
+		myNewX3DFile = s;
+		FreeWRLLib.replaceWorldNeeded();
+		Log.d(TAG,"FreeWRLLib.replaceWorldNeeded();");
+		loadNewX3DFile = true;
+		//FreeWRLLib.initialFile(s);
+		//Log.d(TAG,"FreeWRLLib.initialFile(s);");
 		
 		if (mEGLConfigChooser == null) {
 			mEGLConfigChooser = new GLThread.ConfigChooser(8, 8, 8, 8, 16, 0);
+			Log.d(TAG,"mEGLConfigChooser = new GLThread.ConfigChooser(8, 8, 8, 8, 16, 0);");
 		}
 		if (mEGLContextFactory == null) {
 			mEGLContextFactory = new ContextFactory();
+			Log.d(TAG,"mEGLContextFactory = new ContextFactory();");
 		}
 		if (mEGLWindowSurfaceFactory == null) {
 			mEGLWindowSurfaceFactory = new GLThread.DefaultWindowSurfaceFactory();
+			Log.d(TAG,"mEGLWindowSurfaceFactory = new GLThread.DefaultWindowSurfaceFactory();");
 		}
 		mGLThread = new GLThread(new Renderer(), mEGLConfigChooser, mEGLContextFactory, mEGLWindowSurfaceFactory, null);
+		Log.d(TAG,"mGLThread = new GLThread(new Renderer(), ");
 		mGLThread.start();
+		Log.d(TAG,"mGLThread.start();");
 	}
 	
 	@Override
 	public void draw (Canvas c) {
 		// Do nothing.
+		//Log.d(TAG,"draw");
 		new Thread(Timer_Tick).start();
 	}
 
 	@Override
 	public int getDelay() 	{
-		return 33;
+		//Log.d(TAG,"getDelay");
+		return 100;
 	}
 
 	@Override
 	public void onSurfaceCreated(SurfaceHolder holder) {
+		Log.d(TAG,"onSurfaceCreated");
 		mGLThread.surfaceCreated(holder);
 	}
 	
 	@Override
 	public void onSurfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+		Log.d(TAG,"onSurfaceChanged");
 		mGLThread.onWindowResize(width, height);
 	}
 	
 	@Override
 	public void onSurfaceDestroyed(SurfaceHolder holder) {
+		Log.d(TAG,"onSurfaceDestroyed");
 		mGLThread.surfaceDestroyed();
 	}
 	
 	@Override
 	public void onVisibilityChanged(boolean v) {
+		Log.d(TAG,"onVisibilityChanged");
 		if (v) {
 			mGLThread.onResume();
 		} else {
@@ -100,12 +125,14 @@ public class GLAnimation extends Animation {
 
 	@Override
 	public void onDestroy() {
+		Log.d(TAG,"onDestroy");
 		FreeWRLLib.doQuitInstance();
 		mGLThread.requestExitAndWait();
 	}
 
 	private Runnable Timer_Tick = new Runnable() {
 		public void run() {
+			//Log.d(TAG,"Timer_Tick run");
 			if (FreeWRLLib.resourceWanted()&& (!currentlyGettingResource)) {
 				// we are getting a resource...
 				currentlyGettingResource = true;
@@ -125,7 +152,7 @@ public class GLAnimation extends Animation {
     private static class ContextFactory implements GLSurfaceView.EGLContextFactory {
         private static int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
         public EGLContext createContext(EGL10 egl, EGLDisplay display, EGLConfig eglConfig) {
-	    //Log.w(TAG, "creating OpenGL ES 2.0 context");
+        	Log.d(TAG, "creating OpenGL ES 2.0 context");
             checkEglError("Before eglCreateContext", egl);
             int[] attrib_list = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL10.EGL_NONE };
             EGLContext context = egl.eglCreateContext(display, eglConfig, EGL10.EGL_NO_CONTEXT, attrib_list);
@@ -136,7 +163,7 @@ public class GLAnimation extends Animation {
         }
 
         public void destroyContext(EGL10 egl, EGLDisplay display, EGLContext context) {
-		//Log.w(TAG,"destroyContext called");
+		Log.d(TAG,"destroyContext called");
 		egl.eglDestroyContext(display, context);
 		reloadAssetsRequired = true;
         }
@@ -159,12 +186,20 @@ public class GLAnimation extends Animation {
 		static FreeWRLAssetData fontAssetSize_01;
 		
 		public void onDrawFrame(GL10 gl) {
+			//Log.d(TAG,"Renderer -  onDrawFrame");
+			if (loadNewX3DFile) {
+				Log.d(TAG,"onDrawFrame, new file - "+myNewX3DFile);
+				loadNewX3DFile = false;
+				FreeWRLLib.initialFile(myNewX3DFile);
+			}
+			
 			if (reloadAssetsRequired) {
 				Log.d(TAG,"onDrawFrame, reloadAssets required");
 				FreeWRLLib.reloadAssets();
 				reloadAssetsRequired = false;
 			}
 			FreeWRLLib.step();
+			//Log.d(TAG,"Renderer - FreeWRLLib.step();");
 		}
 
         public void onSurfaceChanged(GL10 gl, int width, int height) {

@@ -1,0 +1,24 @@
+<resources>
+
+    <string name="app_name">Анимированные обои</string>
+    <string name="viewer_name">Просмотрщик анимированных изображений</string>
+    <string name="settings">Настройки</string>
+    <string name="title_activity_settings_wallpaper">Настройки Живых Обоев</string>
+    <string name="title_service_wallpaper">Анимированные обои</string>
+    <string name="title_view_picture">Изображение</string>
+    <string name="description">Анимированные обои</string>
+    <string name="settings_file_name">Имя файла</string>
+    <string name="settings_file_name_summary">Выберете файл gif, png, svg, wrl, x3d, jpg или директорию для отображения в качестве обоев.</string>
+    <string name="settings_delay">Задержка смены кадров</string>
+    <string name="settings_delay_summary">Задержка перед сменой кадра в милисекундах если равна 0 то используется задержка по умолчанию.</string>
+	<string name="title_style">Стиль заполнения</string>
+	<string name="summary_style">Определяет как будет отрисовываться изображение: по центру, дублируясь или масштабироваться.</string>
+	<string name="button_save">Сохранить директорию</string>
+	<string name="button_test">Test X3D viever</string>
+	<string name="back_folder">..</string>
+	<string name="hello_world">.</string>
+	<string name="title_file_view_activity">Выберете файл или директорию</string>
+	<string name="title_file_view_section">Выберете файл или директорию</string>
+		
+
+</resources>

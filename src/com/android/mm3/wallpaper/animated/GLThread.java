@@ -20,10 +20,10 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 
 public class GLThread extends Thread {
-	static final public String TAG = "GLAnimation";
+	static final public String TAG = "GLThread";
 
 	
-	private final static boolean LOG_THREADS = false;
+	private final static boolean LOG_THREADS = true;
 	public final static int DEBUG_CHECK_GL_ERROR = 1;
 	public final static int DEBUG_LOG_GL_CALLS = 2;
 
@@ -59,6 +59,7 @@ public class GLThread extends Thread {
 	GLThread(GLAnimation.Renderer renderer, EGLConfigChooser chooser, EGLContextFactory contextFactory,
 			EGLWindowSurfaceFactory surfaceFactory, GLWrapper wrapper) {
 		super();
+		Log.d(TAG, "GLThread");
 		mDone = false;
 		mWidth = 0;
 		mHeight = 0;
@@ -73,6 +74,7 @@ public class GLThread extends Thread {
 
 	@Override
 	public void run() {
+		Log.d(TAG, "run");
 		setName("GLThread " + getId());
 		if (LOG_THREADS) {
 			Log.i("GLThread", "starting tid=" + getId());
@@ -87,10 +89,9 @@ public class GLThread extends Thread {
 		}
 	}
 
-	/*
-	 * This private method should only be called inside a synchronized(sGLThreadManager) block.
-	 */
+	// This private method should only be called inside a synchronized(sGLThreadManager) block.
 	private void stopEglLocked() {
+		Log.d(TAG, "stopEglLocked");
 		if (mHaveEgl) {
 			mHaveEgl = false;
 			mEglHelper.destroySurface();
@@ -99,19 +100,16 @@ public class GLThread extends Thread {
 	}
 
 	private void guardedRun() throws InterruptedException {
+		Log.d(TAG, "guardedRun");
 		mEglHelper = new EglHelper(mEGLConfigChooser, mEGLContextFactory, mEGLWindowSurfaceFactory, mGLWrapper);
 		try {
 			GL10 gl = null;
 			boolean tellRendererSurfaceCreated = true;
 			boolean tellRendererSurfaceChanged = true;
 
-			/*
-			 * This is our main activity thread's loop, we go until asked to quit.
-			 */
+			// This is our main activity thread's loop, we go until asked to quit.
 			while (!isDone()) {
-				/*
-				 * Update the asynchronous state (window size)
-				 */
+				// Update the asynchronous state (window size)
 				int w = 0;
 				int h = 0;
 				boolean changed = false;
@@ -158,7 +156,7 @@ public class GLThread extends Thread {
 						}
 
 						if ((!mPaused) && mHasSurface && mHaveEgl && (mWidth > 0) && (mHeight > 0)
-								&& (mRequestRender )) {
+								&& (mRequestRender || true)) {
 							changed = mSizeChanged;
 							w = mWidth;
 							h = mHeight;
@@ -181,9 +179,7 @@ public class GLThread extends Thread {
 					}
 				} // end of synchronized(sGLThreadManager)
 
-				/*
-				 * Handle queued events
-				 */
+				// Handle queued events
 				if (eventsWaiting) {
 					Runnable r;
 					while ((r = getEvent()) != null) {
@@ -213,21 +209,17 @@ public class GLThread extends Thread {
 					tellRendererSurfaceChanged = false;
 				}
 				if ((w > 0) && (h > 0)) {
-					/* draw a frame here */
+					// draw a frame here
 					mRenderer.onDrawFrame(gl);
+					//Log.d(TAG, "mRenderer.onDrawFrame(gl);");
 
-					/*
-					 * Once we're done with GL, we need to call swapBuffers() to instruct the system to display the
-					 * rendered frame
-					 */
+					// Once we're done with GL, we need to call swapBuffers() to instruct the system to display the rendered frame
 					mEglHelper.swap();
 					Thread.sleep(10);
 				}
 			}
 		} finally {
-			/*
-			 * clean-up everything...
-			 */
+			// clean-up everything...
 			synchronized (sGLThreadManager) {
 				stopEglLocked();
 				mEglHelper.finish();
@@ -236,12 +228,14 @@ public class GLThread extends Thread {
 	}
 
 	private boolean isDone() {
+		//Log.d(TAG, "isDone");
 		synchronized (sGLThreadManager) {
 			return mDone;
 		}
 	}
 
 	public void setRenderMode(int renderMode) {
+		Log.d(TAG, "setRenderMode");
 		synchronized (sGLThreadManager) {
 			mRenderMode = renderMode;
 			sGLThreadManager.notifyAll();
@@ -249,12 +243,14 @@ public class GLThread extends Thread {
 	}
 
 	public int getRenderMode() {
+		Log.d(TAG, "getRenderMode");
 		synchronized (sGLThreadManager) {
 			return mRenderMode;
 		}
 	}
 
 	public void requestRender() {
+		Log.d(TAG, "requestRender");
 		synchronized (sGLThreadManager) {
 			mRequestRender = true;
 			sGLThreadManager.notifyAll();
@@ -262,6 +258,7 @@ public class GLThread extends Thread {
 	}
 
 	public void surfaceCreated(SurfaceHolder holder) {
+		Log.d(TAG, "surfaceCreated");
 		mHolder = holder;
 		synchronized (sGLThreadManager) {
 			if (LOG_THREADS) {
@@ -273,6 +270,7 @@ public class GLThread extends Thread {
 	}
 
 	public void surfaceDestroyed() {
+		Log.d(TAG, "surfaceDestroyed");
 		synchronized (sGLThreadManager) {
 			if (LOG_THREADS) {
 				Log.i("GLThread", "surfaceDestroyed tid=" + getId());
@@ -290,6 +288,7 @@ public class GLThread extends Thread {
 	}
 
 	public void onPause() {
+		Log.d(TAG, "onPause");
 		synchronized (sGLThreadManager) {
 			mPaused = true;
 			sGLThreadManager.notifyAll();
@@ -297,6 +296,7 @@ public class GLThread extends Thread {
 	}
 
 	public void onResume() {
+		Log.d(TAG, "onResume");
 		synchronized (sGLThreadManager) {
 			mPaused = false;
 			mRequestRender = true;
@@ -305,6 +305,7 @@ public class GLThread extends Thread {
 	}
 
 	public void onWindowResize(int w, int h) {
+		Log.d(TAG, "onWindowResize");
 		synchronized (sGLThreadManager) {
 			mWidth = w;
 			mHeight = h;
@@ -314,6 +315,7 @@ public class GLThread extends Thread {
 	}
 
 	public void requestExitAndWait() {
+		Log.d(TAG, "requestExitAndWait");
 		// don't call this from GLThread thread or it is a guaranteed
 		// deadlock!
 		synchronized (sGLThreadManager) {
@@ -334,6 +336,7 @@ public class GLThread extends Thread {
 	 * the runnable to be run on the GL rendering thread.
 	 */
 	public void queueEvent(Runnable r) {
+		Log.d(TAG, "queueEvent");
 		synchronized (this) {
 			mEventQueue.add(r);
 			synchronized (sGLThreadManager) {
@@ -344,6 +347,7 @@ public class GLThread extends Thread {
 	}
 
 	private Runnable getEvent() {
+		Log.d(TAG, "getEvent");
 		synchronized (this) {
 			if (mEventQueue.size() > 0) {
 				return mEventQueue.remove(0);
@@ -356,6 +360,7 @@ public class GLThread extends Thread {
 	private class GLThreadManager {
 
 		public synchronized void threadExiting(GLThread thread) {
+			Log.d(TAG, "GLThreadManager - threadExiting");
 			if (LOG_THREADS) {
 				Log.i("GLThread", "exiting tid=" + thread.getId());
 			}
@@ -372,6 +377,7 @@ public class GLThread extends Thread {
 		 * @return true if the right to use an EGL surface was acquired.
 		 */
 		public synchronized boolean tryAcquireEglSurface(GLThread thread) {
+			Log.d(TAG, "GLThreadManager - tryAcquireEglSurface");
 			if (mEglOwner == thread || mEglOwner == null) {
 				mEglOwner = thread;
 				notifyAll();
@@ -381,6 +387,7 @@ public class GLThread extends Thread {
 		}
 
 		public synchronized void releaseEglSurface(GLThread thread) {
+			Log.d(TAG, "GLThreadManager - releaseEglSurface");
 			if (mEglOwner == thread) {
 				mEglOwner = null;
 			}
@@ -392,6 +399,7 @@ public class GLThread extends Thread {
     public static class ConfigChooser implements GLSurfaceView.EGLConfigChooser {
 
         public ConfigChooser(int r, int g, int b, int a, int depth, int stencil) {
+        	Log.d(TAG, "ConfigChooser - ConfigChooser");
             mRedSize = r;
             mGreenSize = g;
             mBlueSize = b;
@@ -416,6 +424,7 @@ public class GLThread extends Thread {
 
         public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display) {
 
+        	Log.d(TAG, "ConfigChooser - chooseConfig");
             /* Get the number of minimally matching EGL configurations
              */
             int[] num_config = new int[1];
@@ -425,8 +434,8 @@ public class GLThread extends Thread {
 
             if (numConfigs <= 0) {
                 //throw new IllegalArgumentException("No configs match configSpec");
-		Log.e(TAG,"Need OpenGL ES 2.0 - not found");
-		return null;
+            	Log.e(TAG,"Need OpenGL ES 2.0 - not found");
+            	return null;
             }
 
             /* Allocate then read the array of minimally matching EGL configs
@@ -439,8 +448,8 @@ public class GLThread extends Thread {
             return chooseConfig(egl, display, configs);
         }
 
-        public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display,
-                EGLConfig[] configs) {
+        public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display, EGLConfig[] configs) {
+        	Log.d(TAG, "ConfigChooser - chooseConfig 1");
             for(EGLConfig config : configs) {
                 int d = findConfigAttrib(egl, display, config,
                         EGL10.EGL_DEPTH_SIZE, 0);
@@ -467,17 +476,16 @@ public class GLThread extends Thread {
             return null;
         }
 
-        private int findConfigAttrib(EGL10 egl, EGLDisplay display,
-                EGLConfig config, int attribute, int defaultValue) {
-
+        private int findConfigAttrib(EGL10 egl, EGLDisplay display, EGLConfig config, int attribute, int defaultValue) {
+        	Log.d(TAG, "ConfigChooser - findConfigAttrib");
             if (egl.eglGetConfigAttrib(display, config, attribute, mValue)) {
                 return mValue[0];
             }
             return defaultValue;
         }
 
-        private void printConfigs(EGL10 egl, EGLDisplay display,
-            EGLConfig[] configs) {
+        private void printConfigs(EGL10 egl, EGLDisplay display, EGLConfig[] configs) {
+        	Log.d(TAG, "ConfigChooser - printConfigs");
             int numConfigs = configs.length;
             Log.w(TAG, String.format("%d configurations", numConfigs));
             for (int i = 0; i < numConfigs; i++) {
@@ -486,8 +494,8 @@ public class GLThread extends Thread {
             }
         }
 
-        private void printConfig(EGL10 egl, EGLDisplay display,
-                EGLConfig config) {
+        private void printConfig(EGL10 egl, EGLDisplay display, EGLConfig config) {
+        	Log.d(TAG, "ConfigChooser - printConfig");
             int[] attributes = {
                     EGL10.EGL_BUFFER_SIZE,
                     EGL10.EGL_ALPHA_SIZE,
@@ -563,9 +571,9 @@ public class GLThread extends Thread {
                 int attribute = attributes[i];
                 String name = names[i];
                 if ( egl.eglGetConfigAttrib(display, config, attribute, value)) {
-                    Log.w(TAG, String.format("  %s: %d\n", name, value[0]));
+                    Log.d(TAG, String.format("  %s: %d\n", name, value[0]));
                 } else {
-                    Log.w(TAG, String.format("  %s: failed\n", name));
+                    Log.d(TAG, String.format("  %s: failed\n", name));
                     while (egl.eglGetError() != EGL10.EGL_SUCCESS);
                 }
             }
@@ -584,10 +592,10 @@ public class GLThread extends Thread {
 	
 	public static class DefaultWindowSurfaceFactory implements EGLWindowSurfaceFactory {
 
-		public EGLSurface createWindowSurface(EGL10 egl, EGLDisplay
-				display, EGLConfig config, Object nativeWindow) {
+		public EGLSurface createWindowSurface(EGL10 egl, EGLDisplay display, EGLConfig config, Object nativeWindow) {
 			// this is a bit of a hack to work around Droid init problems - if you don't have this, it'll get hung up on orientation changes
 			EGLSurface eglSurface = null;
+			Log.d(TAG, "DefaultWindowSurfaceFactory - createWindowSurface");
 			while (eglSurface == null) {
 				try {
 					eglSurface = egl.eglCreateWindowSurface(display,
@@ -606,6 +614,7 @@ public class GLThread extends Thread {
 		}
 
 		public void destroySurface(EGL10 egl, EGLDisplay display, EGLSurface surface) {
+			Log.d(TAG, "DefaultWindowSurfaceFactory - destroySurface");
 			egl.eglDestroySurface(display, surface);
 		}
 	}
@@ -626,6 +635,7 @@ public class GLThread extends Thread {
 
 		public EglHelper(EGLConfigChooser chooser, EGLContextFactory contextFactory,
 				EGLWindowSurfaceFactory surfaceFactory, GLWrapper wrapper) {
+			Log.d(TAG, "EglHelper - EglHelper");
 			this.mEGLConfigChooser = chooser;
 			this.mEGLContextFactory = contextFactory;
 			this.mEGLWindowSurfaceFactory = surfaceFactory;
@@ -638,12 +648,10 @@ public class GLThread extends Thread {
 		 * @param configSpec
 		 */
 		public void start() {
-			// Log.d("EglHelper" + instanceId, "start()");
+			Log.d(TAG, "EglHelper - start");
 			if (mEgl == null) {
 				// Log.d("EglHelper" + instanceId, "getting new EGL");
-				/*
-				 * Get an EGL instance
-				 */
+				// Get an EGL instance
 				mEgl = (EGL10) EGLContext.getEGL();
 			} else {
 				// Log.d("EglHelper" + instanceId, "reusing EGL");
@@ -651,9 +659,7 @@ public class GLThread extends Thread {
 
 			if (mEglDisplay == null) {
 				// Log.d("EglHelper" + instanceId, "getting new display");
-				/*
-				 * Get to the default display.
-				 */
+				// Get to the default display.
 				mEglDisplay = mEgl.eglGetDisplay(EGL10.EGL_DEFAULT_DISPLAY);
 			} else {
 				// Log.d("EglHelper" + instanceId, "reusing display");
@@ -661,9 +667,7 @@ public class GLThread extends Thread {
 
 			if (mEglConfig == null) {
 				// Log.d("EglHelper" + instanceId, "getting new config");
-				/*
-				 * We can now initialize EGL for that display
-				 */
+				// We can now initialize EGL for that display
 				int[] version = new int[2];
 				mEgl.eglInitialize(mEglDisplay, version);
 				mEglConfig = mEGLConfigChooser.chooseConfig(mEgl, mEglDisplay);
@@ -673,9 +677,7 @@ public class GLThread extends Thread {
 
 			if (mEglContext == null) {
 				// Log.d("EglHelper" + instanceId, "creating new context");
-				/*
-				 * Create an OpenGL ES context. This must be done only once, an OpenGL context is a somewhat heavy object.
-				 */
+				// Create an OpenGL ES context. This must be done only once, an OpenGL context is a somewhat heavy object.
 				mEglContext = mEGLContextFactory.createContext(mEgl, mEglDisplay, mEglConfig);
 				if (mEglContext == null || mEglContext == EGL10.EGL_NO_CONTEXT) {
 					throw new RuntimeException("createContext failed");
@@ -687,35 +689,25 @@ public class GLThread extends Thread {
 			mEglSurface = null;
 		}
 
-		/*
-		 * React to the creation of a new surface by creating and returning an OpenGL interface that renders to that
-		 * surface.
-		 */
+		// React to the creation of a new surface by creating and returning an OpenGL interface that renders to that surface.
 		public GL createSurface(SurfaceHolder holder) {
-			/*
-			 * The window size has changed, so we need to create a new surface.
-			 */
+			Log.d(TAG, "EglHelper - createSurface");
+			// The window size has changed, so we need to create a new surface.
 			if (mEglSurface != null && mEglSurface != EGL10.EGL_NO_SURFACE) {
 
-				/*
-				 * Unbind and destroy the old EGL surface, if there is one.
-				 */
+				// Unbind and destroy the old EGL surface, if there is one.
 				mEgl.eglMakeCurrent(mEglDisplay, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
 				mEGLWindowSurfaceFactory.destroySurface(mEgl, mEglDisplay, mEglSurface);
 			}
 
-			/*
-			 * Create an EGL surface we can render into.
-			 */
+			// Create an EGL surface we can render into.
 			mEglSurface = mEGLWindowSurfaceFactory.createWindowSurface(mEgl, mEglDisplay, mEglConfig, holder);
 
 			if (mEglSurface == null || mEglSurface == EGL10.EGL_NO_SURFACE) {
 				throw new RuntimeException("createWindowSurface failed");
 			}
 
-			/*
-			 * Before we can issue GL commands, we need to make sure the context is current and bound to a surface.
-			 */
+			// Before we can issue GL commands, we need to make sure the context is current and bound to a surface.
 			if (!mEgl.eglMakeCurrent(mEglDisplay, mEglSurface, mEglSurface, mEglContext)) {
 				throw new RuntimeException("eglMakeCurrent failed.");
 			}
@@ -725,12 +717,10 @@ public class GLThread extends Thread {
 				gl = mGLWrapper.wrap(gl);
 			}
 
-			/*
-			 * if ((mDebugFlags & (DEBUG_CHECK_GL_ERROR | DEBUG_LOG_GL_CALLS))!= 0) { int configFlags = 0; Writer log =
-			 * null; if ((mDebugFlags & DEBUG_CHECK_GL_ERROR) != 0) { configFlags |= GLDebugHelper.CONFIG_CHECK_GL_ERROR; }
-			 * if ((mDebugFlags & DEBUG_LOG_GL_CALLS) != 0) { log = new LogWriter(); } gl = GLDebugHelper.wrap(gl,
-			 * configFlags, log); }
-			 */
+			// if ((mDebugFlags & (DEBUG_CHECK_GL_ERROR | DEBUG_LOG_GL_CALLS))!= 0) { int configFlags = 0; Writer log =
+			// null; if ((mDebugFlags & DEBUG_CHECK_GL_ERROR) != 0) { configFlags |= GLDebugHelper.CONFIG_CHECK_GL_ERROR; }
+			// if ((mDebugFlags & DEBUG_LOG_GL_CALLS) != 0) { log = new LogWriter(); } gl = GLDebugHelper.wrap(gl,
+			// configFlags, log); }
 			return gl;
 		}
 
@@ -740,16 +730,16 @@ public class GLThread extends Thread {
 		 * @return false if the context has been lost.
 		 */
 		public boolean swap() {
+			//Log.d(TAG, "EglHelper - swap");
 			mEgl.eglSwapBuffers(mEglDisplay, mEglSurface);
 
-			/*
-			 * Always check for EGL_CONTEXT_LOST, which means the context and all associated data were lost (For instance
-			 * because the device went to sleep). We need to sleep until we get a new surface.
-			 */
+			// Always check for EGL_CONTEXT_LOST, which means the context and all associated data were lost (For instance
+			// because the device went to sleep). We need to sleep until we get a new surface.
 			return mEgl.eglGetError() != EGL11.EGL_CONTEXT_LOST;
 		}
 
 		public void destroySurface() {
+			Log.d(TAG, "EglHelper - destroySurface");
 			if (mEglSurface != null && mEglSurface != EGL10.EGL_NO_SURFACE) {
 				mEgl.eglMakeCurrent(mEglDisplay, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_SURFACE, EGL10.EGL_NO_CONTEXT);
 				mEGLWindowSurfaceFactory.destroySurface(mEgl, mEglDisplay, mEglSurface);
@@ -758,6 +748,7 @@ public class GLThread extends Thread {
 		}
 
 		public void finish() {
+			Log.d(TAG, "EglHelper - finish");
 			if (mEglContext != null) {
 				mEGLContextFactory.destroyContext(mEgl, mEglDisplay, mEglContext);
 				mEglContext = null;

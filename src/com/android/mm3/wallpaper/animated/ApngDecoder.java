@@ -12,7 +12,6 @@ import java.util.zip.Inflater;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.graphics.Paint;
 
 /**
@@ -75,12 +74,12 @@ public class ApngDecoder extends Decoder{
     private int chunkType;
     private int chunkRemaining;
     
-    private boolean animated = false;
+    //private boolean animated = false;
     private int numFrames = 0;
     private int numPlays = 0;
     private Vector<ApngFrame> frames;
     private int delay = 0; // delay in milliseconds
-    private int sequence_number = 0;
+    //private int sequence_number = 0;
     private int ch_width = 0;
     private int ch_height = 0;
     private int x_offset = 0;
@@ -96,15 +95,14 @@ public class ApngDecoder extends Decoder{
         }
 
         public Bitmap image;
-        public Bitmap prev_image;
-        public int ch_width = 0;
-        public int ch_height = 0;
-        public int x_offset = 0;
-        public int y_offset = 0;
+        //public int ch_width = 0;
+        //public int ch_height = 0;
+        //public int x_offset = 0;
+        //public int y_offset = 0;
         public int delay_num = 0;
         public int delay_den = 0;
-        public int dispose_op = 0;
-        public int blend_op = 0;
+        //public int dispose_op = 0;
+        //public int blend_op = 0;
 }
 
     
@@ -286,7 +284,7 @@ public class ApngDecoder extends Decoder{
         return frames.elementAt(n).image;
     }
     
-    
+/*    
     public int getFrameOffsetX(int n) {
         if (numFrames <= 0)
                 return 0;
@@ -300,7 +298,7 @@ public class ApngDecoder extends Decoder{
         n = n % numFrames;
         return frames.elementAt(n).y_offset;
     }
-	
+*/	
 	/**
 	 * Gets the "Netscape" iteration count, if any. A count of 0 means repeat indefinitiely.
 	 * 
@@ -401,11 +399,11 @@ public class ApngDecoder extends Decoder{
 	                            if(r==tr && g==tg && b==tb) {
 	                                a = 0;
 	                            }
-	                            dest[offset++] = Color.argb(a, r, g, b);
+	                            dest[offset++] = ARGBtoColor(a, r, g, b);
 	                        }
 	                    } else {
 	                        for(int i=1,n=curLine.length ; i<n ; i+=3) {
-	                        	dest[offset++] = Color.argb((byte)0xFF, curLine[i], curLine[i+1], curLine[i+2]);
+	                        	dest[offset++] = ARGBtoColor((byte)0xFF, curLine[i], curLine[i+1], curLine[i+2]);
 	                        }
 	                    }
                     }
@@ -413,7 +411,7 @@ public class ApngDecoder extends Decoder{
                 case COLOR_TRUEALPHA:
                     {
 	                    for(int i=1,n=curLine.length ; i<n ; i+=4) {
-	                    	dest[offset++] = Color.argb(curLine[i+3], curLine[i], curLine[i+1], curLine[i+2]);
+	                    	dest[offset++] = ARGBtoColor(curLine[i+3], curLine[i], curLine[i+1], curLine[i+2]);
 	                    }
                     }
                     break;
@@ -447,7 +445,7 @@ public class ApngDecoder extends Decoder{
 	                            byte g = palette[idx*3 + 1];
 	                            byte b = palette[idx*3 + 2];
 	                            byte a = paletteA[idx];
-	                            dest[offset++] = Color.argb(a, r, g, b);
+	                            dest[offset++] = ARGBtoColor(a, r, g, b);
 	                        }
 	                    } else {
 	                        for(int i=1,n=curLine.length ; i<n ; i+=1) {
@@ -456,7 +454,7 @@ public class ApngDecoder extends Decoder{
 	                            byte g = palette[idx*3 + 1];
 	                            byte b = palette[idx*3 + 2];
 	                            byte a = (byte)0xFF;
-	                            dest[offset++] = Color.argb(a, r, g, b);
+	                            dest[offset++] = ARGBtoColor(a, r, g, b);
 	                        }
 	                    }
                 	}
@@ -473,6 +471,13 @@ public class ApngDecoder extends Decoder{
             inflater.end();
         }
         return dest;
+    }
+    
+    private int ARGBtoColor(byte a, byte r, byte g, byte b) {
+    	return ((a      ) << 24) |
+                ((r & 255) << 16) |
+                ((g & 255) <<  8) |
+                ((b & 255)      );
     }
 
     private void expand4(byte[] src, byte[] dst) {
@@ -542,7 +547,7 @@ public class ApngDecoder extends Decoder{
     }
     
     private void unfilterUp(byte[] curLine, byte[] prevLine) {
-        final int bpp = this.bytesPerPixel;
+        //final int bpp = this.bytesPerPixel;
         for(int i=1,n=curLine.length ; i<n ; ++i) {
             curLine[i] += prevLine[i];
         }
@@ -680,7 +685,7 @@ public class ApngDecoder extends Decoder{
     private void readacTL() throws IOException {
         checkChunkLength(8);
         readChunk(buffer, 0, 8);
-    	animated = true;
+    	//animated = true;
     	numFrames = readInt(buffer, 0);
     	numPlays = readInt(buffer, 4);
     }
@@ -689,7 +694,7 @@ public class ApngDecoder extends Decoder{
     private void readfcTL() throws IOException {
         checkChunkLength(26);
         readChunk(buffer, 0, 26);
-        sequence_number = readInt(buffer, 0);
+        //sequence_number = readInt(buffer, 0);
     	ch_width        = readInt(buffer, 4);
     	ch_height       = readInt(buffer, 8);
     	x_offset        = readInt(buffer, 12);
@@ -702,7 +707,7 @@ public class ApngDecoder extends Decoder{
 
     private void readfdAT() throws IOException {
         readChunk(buffer, 0, 4);
-        int data_sequence_number = readInt(buffer, 0);
+        //int data_sequence_number = readInt(buffer, 0);
     	int[] dest = decodeChunk(fdAT, ch_width, ch_height);
     	Bitmap img = Bitmap.createBitmap(dest, ch_width, ch_height, Config.ARGB_8888);
     	ApngFrame prev = frames.lastElement();
@@ -732,14 +737,14 @@ public class ApngDecoder extends Decoder{
     		throw new IOException("Incorrect frame blend: " + Integer.toHexString(blend_op));
     	}
     	ApngFrame f = new ApngFrame(newimg);
-    	f.ch_width   = ch_width;
-    	f.ch_height  = ch_height;
-    	f.x_offset   = x_offset;
-    	f.y_offset   = y_offset;
+    	//f.ch_width   = ch_width;
+    	//f.ch_height  = ch_height;
+    	//f.x_offset   = x_offset;
+    	//f.y_offset   = y_offset;
     	f.delay_num  = delay_num;
     	f.delay_den  = delay_den;
-    	f.dispose_op = dispose_op;
-    	f.blend_op   = blend_op;
+    	//f.dispose_op = dispose_op;
+    	//f.blend_op   = blend_op;
     	frames.add(f);
     }
     
@@ -752,14 +757,14 @@ public class ApngDecoder extends Decoder{
     		frames = new Vector<ApngFrame>();
     	}
     	ApngFrame f = new ApngFrame(img);
-    	f.ch_width   = ch_width;
-    	f.ch_height  = ch_height;
-    	f.x_offset   = x_offset;
-    	f.y_offset   = y_offset;
+    	//f.ch_width   = ch_width;
+    	//f.ch_height  = ch_height;
+    	//f.x_offset   = x_offset;
+    	//f.y_offset   = y_offset;
     	f.delay_num  = delay_num;
     	f.delay_den  = delay_den;
-    	f.dispose_op = dispose_op;
-    	f.blend_op   = blend_op;
+    	//f.dispose_op = dispose_op;
+    	//f.blend_op   = blend_op;
     	frames.add(f);
     }
     

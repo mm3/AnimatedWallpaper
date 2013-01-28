@@ -19,7 +19,7 @@ public class ApngAnimation extends GifAnimation
 	@Override
 	protected Decoder newDecoder(InputStream is) {
         try {
-        	ApngDecoder decoder = new ApngDecoder(is);
+			ApngDecoder decoder = new ApngDecoder(is);
         	return decoder;
         }
         catch (Exception e) {
