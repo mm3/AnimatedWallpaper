@@ -12,6 +12,7 @@ import java.util.zip.Inflater;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
 
 /**
@@ -21,33 +22,6 @@ import android.graphics.Paint;
  */
 
 public class ApngDecoder extends Decoder{
-
-    public enum Format {
-        ALPHA(1, true),
-        LUMINANCE(1, false),
-        LUMINANCE_ALPHA(2, true),
-        RGB(3, false),
-        RGBA(4, true),
-        BGRA(4, true),
-        ABGR(4, true),
-        ARGB(4, true);
-
-        final int numComponents;
-        final boolean hasAlpha;
-
-        private Format(int numComponents, boolean hasAlpha) {
-            this.numComponents = numComponents;
-            this.hasAlpha = hasAlpha;
-        }
-
-        public int getNumComponents() {
-            return numComponents;
-        }
-
-        public boolean isHasAlpha() {
-            return hasAlpha;
-        }
-    }
 
     private static final byte[] SIGNATURE = {(byte)137, 80, 78, 71, 13, 10, 26, 10};
 
@@ -95,14 +69,14 @@ public class ApngDecoder extends Decoder{
         }
 
         public Bitmap image;
-        //public int ch_width = 0;
-        //public int ch_height = 0;
-        //public int x_offset = 0;
-        //public int y_offset = 0;
+        public int ch_width = 0;
+        public int ch_height = 0;
+        public int x_offset = 0;
+        public int y_offset = 0;
         public int delay_num = 0;
         public int delay_den = 0;
-        //public int dispose_op = 0;
-        //public int blend_op = 0;
+        public int dispose_op = 0;
+        public int blend_op = 0;
 }
 
     
@@ -117,6 +91,7 @@ public class ApngDecoder extends Decoder{
     private byte[] transPixel;
     
     private Paint paint = new Paint();
+    private Paint paintTransparentBlack = new Paint();
 
     
     public ApngDecoder(InputStream input) throws IOException {
@@ -124,6 +99,8 @@ public class ApngDecoder extends Decoder{
         this.crc = new CRC32();
         this.buffer = new byte[4096];
         this.paint.setAntiAlias(true);
+        this.paintTransparentBlack.setAntiAlias(true);
+        this.paintTransparentBlack.setColor(Color.TRANSPARENT);
 
         
         readFully(buffer, 0, SIGNATURE.length);
@@ -244,13 +221,11 @@ public class ApngDecoder extends Decoder{
      * @return delay in milliseconds
      */
     public int getDelay(int n) {
-    	delay = -1;
-    	if ((n >= 0) && (n < numFrames)) {
-    		int den = frames.elementAt(n).delay_den;
-    		int num = frames.elementAt(n).delay_num;
-    		den = (den==0) ? 100 : den;
-    		delay = (num==0) ? 50 : num * 1000 / den;
-    	}
+    	n = (n < 0) ? 0 : n % numFrames;
+    	int den = frames.elementAt(n).delay_den;
+    	int num = frames.elementAt(n).delay_num;
+    	den = (den==0) ? 100 : den;
+    	int delay = (num==0) ? 50 : num * 1000 / den;
     	return delay;
     }
 
@@ -284,6 +259,11 @@ public class ApngDecoder extends Decoder{
         return frames.elementAt(n).image;
     }
     
+    
+    public void drawFrame(Canvas c) {
+    	
+    }
+    
 /*    
     public int getFrameOffsetX(int n) {
         if (numFrames <= 0)
@@ -308,54 +288,6 @@ public class ApngDecoder extends Decoder{
 	        return numPlays;
 	}
 
-
-    /**
-     * Computes the implemented format conversion for the desired format.
-     *
-     * @param fmt the desired format
-     * @return format which best matches the desired format
-     * @throws UnsupportedOperationException if this PNG file can't be decoded
-     */
-    public Format decideTextureFormat(Format fmt) {
-        switch (colorType) {
-        case COLOR_TRUECOLOR:
-            switch (fmt) {
-            case ABGR:
-            case ARGB:
-            case RGBA:
-            case BGRA:
-            case RGB: return fmt;
-            default: return Format.RGB;
-            }
-        case COLOR_TRUEALPHA:
-            switch (fmt) {
-            case ABGR:
-            case ARGB:
-            case RGBA:
-            case BGRA:
-            case RGB: return fmt;
-            default: return Format.RGBA;
-            }
-        case COLOR_GREYSCALE:
-            switch (fmt) {
-            case LUMINANCE:
-            case ALPHA: return fmt;
-            default: return Format.LUMINANCE;
-            }
-        case COLOR_GREYALPHA:
-            return Format.LUMINANCE_ALPHA;
-        case COLOR_INDEXED:
-            switch (fmt) {
-            case ABGR:
-            case ARGB:
-            case RGBA:
-            case BGRA: return fmt;
-            default: return Format.RGBA;
-            }
-        default:
-            throw new UnsupportedOperationException("Not yet implemented");
-        }
-    }
 
     /**
      * Decodes the image into the Bitmap.
@@ -623,10 +555,7 @@ public class ApngDecoder extends Decoder{
             break;
         case COLOR_INDEXED:
             switch(bitdepth) {
-            case 8:
-            case 4:
-            case 2:
-            case 1:
+            case 8: case 4: case 2: case 1:
                 bytesPerPixel = 1;
                 break;
             default:
@@ -717,34 +646,35 @@ public class ApngDecoder extends Decoder{
     	}
     	if(blend_op == 0) {
     		if(dispose_op == 0) {
-    			
     		} else if(dispose_op == 1) {
-    			
     		} else if(dispose_op == 2) {
-    			
     		}
-//    		Canvas c = new Canvas(newimg);
-//    		c.drawBitmap(img, x_offset, y_offset, this.paint);
     		newimg.setPixels(dest, 0, ch_width, x_offset, y_offset, ch_width, ch_height);
     	} else if(blend_op == 1){
-    		Canvas c = new Canvas(newimg);
     		if(dispose_op == 0) {
+        		Canvas c = new Canvas(newimg);
+        		c.drawBitmap(img, x_offset, y_offset, this.paint);
     		} else if(dispose_op == 1) {
+    			Arrays.fill(dest, 0);
+    			newimg.setPixels(dest, 0, ch_width, x_offset, y_offset, ch_width, ch_height);
+        		Canvas c = new Canvas(newimg);
+        		c.drawBitmap(img, x_offset, y_offset, this.paint);
     		} else if(dispose_op == 2) {
+        		Canvas c = new Canvas(newimg);
+        		c.drawBitmap(img, x_offset, y_offset, this.paint);
     		}
-    		c.drawBitmap(img, x_offset, y_offset, this.paint);
     	} else {
     		throw new IOException("Incorrect frame blend: " + Integer.toHexString(blend_op));
     	}
     	ApngFrame f = new ApngFrame(newimg);
-    	//f.ch_width   = ch_width;
-    	//f.ch_height  = ch_height;
-    	//f.x_offset   = x_offset;
-    	//f.y_offset   = y_offset;
+    	f.ch_width   = ch_width;
+    	f.ch_height  = ch_height;
+    	f.x_offset   = x_offset;
+    	f.y_offset   = y_offset;
     	f.delay_num  = delay_num;
     	f.delay_den  = delay_den;
-    	//f.dispose_op = dispose_op;
-    	//f.blend_op   = blend_op;
+    	f.dispose_op = dispose_op;
+    	f.blend_op   = blend_op;
     	frames.add(f);
     }
     
@@ -757,14 +687,14 @@ public class ApngDecoder extends Decoder{
     		frames = new Vector<ApngFrame>();
     	}
     	ApngFrame f = new ApngFrame(img);
-    	//f.ch_width   = ch_width;
-    	//f.ch_height  = ch_height;
-    	//f.x_offset   = x_offset;
-    	//f.y_offset   = y_offset;
+    	f.ch_width   = ch_width;
+    	f.ch_height  = ch_height;
+    	f.x_offset   = x_offset;
+    	f.y_offset   = y_offset;
     	f.delay_num  = delay_num;
     	f.delay_den  = delay_den;
-    	//f.dispose_op = dispose_op;
-    	//f.blend_op   = blend_op;
+    	f.dispose_op = dispose_op;
+    	f.blend_op   = blend_op;
     	frames.add(f);
     }
     

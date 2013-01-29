@@ -29,5 +29,7 @@ public class Decoder
     public int getWidth() {
         return 0;
     }
-
+    
+	public void onDestroy() {
+	}
 }

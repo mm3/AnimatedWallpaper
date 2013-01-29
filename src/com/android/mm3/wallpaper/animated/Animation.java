@@ -16,6 +16,7 @@ public class Animation
 	
 	public int style = Animation.STYLE_CENTRED;
 	protected Paint paint = null;
+	protected Decoder decoder = null;
 	
 	public Animation(){
 		style = Animation.STYLE_CENTRED;
@@ -142,5 +143,8 @@ public class Animation
 	}
 
 	public void onDestroy() {
+		if(this.decoder != null) {
+			this.decoder.onDestroy();
+		}
 	}
 }

@@ -58,6 +58,9 @@ public class ViewPictureActivity extends Activity {
 	{
 		super.onDestroy();
 		stopRunnable();
+		if(pview != null) {
+			pview.onDestroy();
+		}
 	}
 	
 	@Override
@@ -129,5 +132,13 @@ public class ViewPictureActivity extends Activity {
 			}
 			c.restore();
 		}
+		
+		public void onDestroy()
+		{
+			if(animation != null) {
+				animation.onDestroy();
+			}
+		}
+		
 	}
 }

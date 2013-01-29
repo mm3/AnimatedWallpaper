@@ -216,6 +216,11 @@ public class SvgDecoder extends Decoder {
 		return localHeight;
 	}
     
+	public void onDestroy() {
+		frame.clean();
+	}
+
+    
     public float getScale() {
     	return (scaling) ? this.scale : 1f;
     }
@@ -383,8 +388,9 @@ public class SvgDecoder extends Decoder {
                     p = i;
                     return new NumberParse(numbers);
                 }
+                //case '-':
                 case '\n': case '\t': case ' ': case ',':
-                case '-': {
+                {
                     String str = s.substring(p, i);
                     // Just keep moving if multiple whitespace
                     if (str.trim().length() > 0) {
@@ -896,7 +902,7 @@ public class SvgDecoder extends Decoder {
             NumberParse numbers = null;
             String pointstr = getAttr("points");
             if(pointstr != null) {
-            	numbers = parseNumbers("points");
+            	numbers = parseNumbers(pointstr);
             }
             if (numbers != null) {
                 Path p = new Path();
@@ -1284,6 +1290,9 @@ public class SvgDecoder extends Decoder {
                 gradient.matrix = parseTransform(transform);
             }
             String xlink = getAttr("href");
+            if(xlink == null) {
+            	xlink = getAttr("xlink:href");
+            }
             if (xlink != null) {
                 if (xlink.startsWith("#")) {
                     xlink = xlink.substring(1);
@@ -1333,10 +1342,15 @@ public class SvgDecoder extends Decoder {
                         gradient = parent.createChild(gradient);
                     }
                 }
-                LinearGradient g = new LinearGradient(gradient.x1, gradient.y1, gradient.x2, gradient.y2, colors, positions, Shader.TileMode.CLAMP);
-                if (gradient.matrix != null) {
-                    g.setLocalMatrix(gradient.matrix);
-                }
+                LinearGradient g = null;
+                try {
+	                g = new LinearGradient(gradient.x1, gradient.y1, gradient.x2, gradient.y2, colors, positions, Shader.TileMode.CLAMP);
+	                if (gradient.matrix != null) {
+	                    g.setLocalMatrix(gradient.matrix);
+	                }
+                } catch (Exception e) {
+		            Log.e(TAG, "LinearGradient exeption" + e);
+		        }
                 this.gradientAnd = g;
             }
 		}
@@ -1372,6 +1386,9 @@ public class SvgDecoder extends Decoder {
                 gradient.matrix = parseTransform(transform);
             }
             String xlink = getAttr("href");
+            if (xlink == null) {
+            	xlink = getAttr("xlink:href");
+            }
             if (xlink != null) {
                 if (xlink.startsWith("#")) {
                     xlink = xlink.substring(1);
@@ -1421,10 +1438,16 @@ public class SvgDecoder extends Decoder {
                         gradient = parent.createChild(gradient);
                     }
                 }
-                RadialGradient g = new RadialGradient(gradient.x, gradient.y, gradient.radius, colors, positions, Shader.TileMode.CLAMP);
-                if (gradient.matrix != null) {
-                    g.setLocalMatrix(gradient.matrix);
-                }
+                RadialGradient g = null;
+                try {
+	                g = new RadialGradient(gradient.x, gradient.y, gradient.radius, colors, positions, Shader.TileMode.CLAMP);
+	                if (gradient.matrix != null) {
+	                    g.setLocalMatrix(gradient.matrix);
+	                }
+                } catch (Exception e) {
+		            Log.e(TAG, "RadialGradient exeption" + e);
+		        }
+                
                 this.gradientAnd = g;
             }
 		}
@@ -1609,6 +1632,12 @@ public class SvgDecoder extends Decoder {
 			return this.height;
 		}
 		
+		public void clean() {
+			super.clean();
+			this.animation.clear();
+			this.animation = null;
+		}
+		
 		public int getDelay() {
 			if(this.animation == null) {
 				this.animation = new Vector<SVGElement>();
@@ -1740,6 +1769,20 @@ public class SvgDecoder extends Decoder {
     	
     	public String getName() {
     		return this.name;
+    	}
+    	
+    	public void clean() {
+    		int size = this.elements.size();
+    		for(int i = 0; i < size; i++) {
+    			this.elements.get(i).clean();
+    		}
+    		this.attrs.clear();
+    		this.elements.clear();
+    		this.attrs = null;
+    		this.elements = null;
+    		this.parent = null;
+        	this.data = null;
+        	this.name = null;
     	}
     	
     	public void init() {

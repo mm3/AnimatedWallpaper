@@ -194,35 +194,33 @@ public class FileViewActivity extends Activity implements AdapterView.OnItemClic
 			try {
 				final String file = (String) params[0];
 				final View v = (View) params[1];
-				if(v.getTag() == null) {
-					BitmapFactory.Options op = new BitmapFactory.Options();
-					int scale = 1;
-					InputStream in = null;
-					try {
-						in = new BufferedInputStream(new FileInputStream(file));
-						op.inJustDecodeBounds = true;
-						BitmapFactory.decodeStream(in, null, op);
-						if(op.outWidth > op.outHeight) {
-							scale = Math.round((float) op.outHeight / (float) v.getHeight());
-						} else {
-							scale = Math.round((float) op.outWidth / (float) v.getWidth());
-						}
-					} catch (Exception e) {						
-					} finally {
-						try {
-							if(in != null) {
-								in.close();
-								in = null;
-							}
-						} catch (Exception e) {}
+				BitmapFactory.Options op = new BitmapFactory.Options();
+				int scale = 1;
+				InputStream in = null;
+				try {
+					in = new BufferedInputStream(new FileInputStream(file));
+					op.inJustDecodeBounds = true;
+					BitmapFactory.decodeStream(in, null, op);
+					if(op.outWidth > op.outHeight) {
+						scale = Math.round((float) op.outHeight / (float) v.getHeight());
+					} else {
+						scale = Math.round((float) op.outWidth / (float) v.getWidth());
 					}
-					op = new BitmapFactory.Options();
-					op.inSampleSize = scale;
-					op.inPreferredConfig = Config.RGB_565;
-					Bitmap b = BitmapFactory.decodeFile(file, op);
-					b = Bitmap.createScaledBitmap(b, v.getWidth(), v.getHeight(), false);
-					v.setTag(b);
+				} catch (Exception e) {						
+				} finally {
+					try {
+						if(in != null) {
+							in.close();
+							in = null;
+						}
+					} catch (Exception e) {}
 				}
+				op = new BitmapFactory.Options();
+				op.inSampleSize = scale;
+				op.inPreferredConfig = Config.RGB_565;
+				Bitmap b = BitmapFactory.decodeFile(file, op);
+				b = Bitmap.createScaledBitmap(b, v.getWidth(), v.getHeight(), false);
+				v.setTag(b);
 				return v;
 			} catch(Exception e) {
 				return null;

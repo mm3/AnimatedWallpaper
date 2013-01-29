@@ -18,7 +18,6 @@ public class GifAnimation extends Animation
 	static final public String TAG = "GifAnimation";
 	
 
-	protected Decoder decoder = null;
 	protected Bitmap bitmap = null;
 	protected int counter = 0;
 	protected int maxCount = 0;
@@ -145,7 +144,7 @@ public class GifAnimation extends Animation
 	public int getDelay() 
 	{
 		if(this.decoder != null ) {
-			return this.decoder.getDelay(this.counter);
+			return this.decoder.getDelay(this.counter-1);
 		}
 		else {
 			return 100;

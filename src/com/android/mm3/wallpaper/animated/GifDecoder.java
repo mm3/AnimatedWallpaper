@@ -75,10 +75,8 @@ public class GifDecoder extends Decoder{
          * @return delay in milliseconds
          */
         public int getDelay(int n) {
-                delay = -1;
-                if ((n >= 0) && (n < frameCount)) {
-                        delay = frames.elementAt(n).delay;
-                }
+        		n = (n < 0) ? 0 : n % frameCount;
+                delay = frames.elementAt(n).delay;
                 return delay;
         }
 
