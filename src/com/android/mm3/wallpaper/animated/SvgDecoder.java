@@ -5,11 +5,13 @@ import android.graphics.Color;
 import android.graphics.LinearGradient;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Paint.Align;
 import android.graphics.Path;
 import android.graphics.Picture;
 import android.graphics.RadialGradient;
 import android.graphics.RectF;
 import android.graphics.Shader;
+import android.graphics.Typeface;
 import android.util.Log;
 import android.util.Xml;
 
@@ -332,6 +334,15 @@ public class SvgDecoder extends Decoder {
         return result;
     }
     
+	private static String escape (String s) {
+		return s
+			.replaceAll("\"", "&quot;")
+			.replaceAll("'", "&apos")
+			.replaceAll("<", "&lt;")
+			.replaceAll(">", "&gt;")
+			.replaceAll("&", "&amp;");
+	}
+
 	protected void parseAttrs(SVGElement element, XmlPullParser parser) throws XmlPullParserException, IOException {
     	int num = parser.getAttributeCount();
     	for(int i = 0; i < num; i++) {
@@ -426,12 +437,33 @@ public class SvgDecoder extends Decoder {
         return new NumberParse(numbers);
     }
 
-    private Matrix parseTransform(String s) {
+	// Process a list of transforms
+	// foo(n,n,n...) bar(n,n,n..._ ...)
+	// delims are whitespace or ,'s
+
+	private Matrix parseTransform(String s) {
+		//Log.d(TAG, s);
+		Matrix matrix = new Matrix();
+		while (true) {
+			parseTransformItem(s, matrix);
+			// Log.i(TAG, "Transformed: (" + s + ") " + matrix);
+			int rparen = s.indexOf(")");
+			if (rparen > 0 && s.length() > rparen + 1) {
+				s = s.substring(rparen + 1).replaceFirst("[\\s,]*", "");
+			} else {
+				break;
+			}
+		}
+		//Log.d(TAG, matrix.toShortString());
+		return matrix;
+	}
+
+	private Matrix parseTransformItem(String s, Matrix matrix) {
         if (s.startsWith("matrix(")) {
             NumberParse np = parseNumbers(s.substring("matrix(".length()));
             if (np.numbers.size() == 6) {
-                Matrix matrix = new Matrix();
-                matrix.setValues(new float[]{
+				Matrix mat = new Matrix();
+				mat.setValues(new float[] {
                         // Row 1
                         np.numbers.get(0), np.numbers.get(2), np.numbers.get(4),
                         // Row 2
@@ -439,7 +471,7 @@ public class SvgDecoder extends Decoder {
                         // Row 3
                         0,                 0,                 1,
                 });
-                return matrix;
+				matrix.preConcat(mat);
             }
         } else if (s.startsWith("translate(")) {
             NumberParse np = parseNumbers(s.substring("translate(".length()));
@@ -449,37 +481,29 @@ public class SvgDecoder extends Decoder {
                 if (np.numbers.size() > 1) {
                     ty = np.numbers.get(1);
                 }
-                Matrix matrix = new Matrix();
-                matrix.postTranslate(tx, ty);
-                return matrix;
+				matrix.preTranslate(tx, ty);
             }
         } else if (s.startsWith("scale(")) {
             NumberParse np = parseNumbers(s.substring("scale(".length()));
             if (np.numbers.size() > 0) {
                 float sx = np.numbers.get(0);
-                float sy = 0;
+				float sy = sx;
                 if (np.numbers.size() > 1) {
                     sy = np.numbers.get(1);
                 }
-                Matrix matrix = new Matrix();
-                matrix.postScale(sx, sy);
-                return matrix;
+				matrix.preScale(sx, sy);
             }
         } else if (s.startsWith("skewX(")) {
             NumberParse np = parseNumbers(s.substring("skewX(".length()));
             if (np.numbers.size() > 0) {
                 float angle = np.numbers.get(0);
-                Matrix matrix = new Matrix();
-                matrix.postSkew((float) Math.tan(angle), 0);
-                return matrix;
+				matrix.preSkew((float) Math.tan(angle), 0);
             }
         } else if (s.startsWith("skewY(")) {
             NumberParse np = parseNumbers(s.substring("skewY(".length()));
             if (np.numbers.size() > 0) {
                 float angle = np.numbers.get(0);
-                Matrix matrix = new Matrix();
-                matrix.postSkew(0, (float) Math.tan(angle));
-                return matrix;
+				matrix.preSkew(0, (float) Math.tan(angle));
             }
         } else if (s.startsWith("rotate(")) {
             NumberParse np = parseNumbers(s.substring("rotate(".length()));
@@ -491,14 +515,14 @@ public class SvgDecoder extends Decoder {
                     cx = np.numbers.get(1);
                     cy = np.numbers.get(2);
                 }
-                Matrix matrix = new Matrix();
-                matrix.postTranslate(cx, cy);
-                matrix.postRotate(angle);
-                matrix.postTranslate(-cx, -cy);
-                return matrix;
+				matrix.preTranslate(cx, cy);
+				matrix.preRotate(angle);
+				matrix.preTranslate(-cx, -cy);
             }
+		} else {
+			Log.i(TAG, "Invalid transform (" + s + ")");
         }
-        return null;
+		return matrix;
     }
 
     /**
@@ -531,31 +555,23 @@ public class SvgDecoder extends Decoder {
         float lastY = 0;
         float lastX1 = 0;
         float lastY1 = 0;
-        float subPathStartX = 0;
-        float subPathStartY = 0;
-        char prevCmd = 0;
+		RectF r = new RectF();
+		char cmd = 'x';
         while (ph.pos < n) {
-            char cmd = s.charAt(ph.pos);
-            switch (cmd) {
-                case '-': case '+': case '0':
-                case '1': case '2': case '3':
-                case '4': case '5': case '6':
-                case '7': case '8': case '9':
-                    if (prevCmd == 'm' || prevCmd == 'M') {
-                        cmd = (char) (((int) prevCmd) - 1);
-                        break;
-                    } else if (prevCmd == 'c' || prevCmd == 'C') {
-                        cmd = prevCmd;
-                        break;
-                    } else if (prevCmd == 'l' || prevCmd == 'L') {
-                        cmd = prevCmd;
-                        break;
-                    }
-                default: {
+			char next = s.charAt(ph.pos);
+			if (!Character.isDigit(next) && !(next == '.') && !(next == '-')) {
+				cmd = next;
                     ph.advance();
-                    prevCmd = cmd;
+			} else if (cmd == 'M') { // implied command
+				cmd = 'L';
+			} else if (cmd == 'm') { // implied command
+				cmd = 'l';
+			} else { // implied command
+				// Log.d(TAG, "Implied command: " + cmd);
                 }
-            }
+			p.computeBounds(r, true);
+			// Log.d(TAG, "  " + cmd + " " + r);
+			// Util.debug("* Commands remaining: '" + path + "'.");
 
             boolean wasCurve = false;
             switch (cmd) {
@@ -564,14 +580,10 @@ public class SvgDecoder extends Decoder {
                     float x = ph.nextFloat();
                     float y = ph.nextFloat();
                     if (cmd == 'm') {
-                        subPathStartX += x;
-                        subPathStartY += y;
                         p.rMoveTo(x, y);
                         lastX += x;
                         lastY += y;
                     } else {
-                        subPathStartX = x;
-                        subPathStartY = y;
                         p.moveTo(x, y);
                         lastX = x;
                         lastY = y;
@@ -581,12 +593,6 @@ public class SvgDecoder extends Decoder {
                 case 'Z':
                 case 'z': {
                     p.close();
-                    p.moveTo(subPathStartX, subPathStartY);
-                    lastX = subPathStartX;
-                    lastY = subPathStartY;
-                    lastX1 = subPathStartX;
-                    lastY1 = subPathStartY;
-                    wasCurve = true;
                     break;
                 }
                 case 'L':
@@ -683,11 +689,18 @@ public class SvgDecoder extends Decoder {
                     int sweepArc = (int) ph.nextFloat();
                     float x = ph.nextFloat();
                     float y = ph.nextFloat();
-                    drawArc(p, lastX, lastY, x, y, rx, ry, theta, largeArc, sweepArc);
+				if (cmd == 'a') {
+					x += lastX;
+					y += lastY;
+				}
+				drawArc(p, lastX, lastY, x, y, rx, ry, theta, largeArc == 1, sweepArc == 1);
                     lastX = x;
                     lastY = y;
                     break;
                 }
+			default:
+				Log.d(TAG, "Invalid path command: " + cmd);
+				ph.advance();
             }
             if (!wasCurve) {
                 lastX1 = lastX;
@@ -698,11 +711,79 @@ public class SvgDecoder extends Decoder {
         return p;
     }
 
-    private void drawArc(Path p, float lastX, float lastY, float x, float y, float rx, float ry, float theta, int largeArc, int sweepArc) {
-        //p.arcTo(RectF oval, float startAngle, float sweepAngle, boolean forceMoveTo);
+	// Elliptical arc implementation based on the SVG specification notes
+	// Adapted from the Batik library (Apache-2 license) by SAU
 
-    	// todo - not implemented yet, may be very hard to do using Android drawing facilities.
-    }
+	private static void drawArc(Path path, double x0, double y0, double x, double y, double rx,
+			double ry, double angle, boolean largeArcFlag, boolean sweepFlag) {
+		double dx2 = (x0 - x) / 2.0;
+		double dy2 = (y0 - y) / 2.0;
+		angle = Math.toRadians(angle % 360.0);
+		double cosAngle = Math.cos(angle);
+		double sinAngle = Math.sin(angle);
+
+		double x1 = (cosAngle * dx2 + sinAngle * dy2);
+		double y1 = (-sinAngle * dx2 + cosAngle * dy2);
+		rx = Math.abs(rx);
+		ry = Math.abs(ry);
+
+		double Prx = rx * rx;
+		double Pry = ry * ry;
+		double Px1 = x1 * x1;
+		double Py1 = y1 * y1;
+
+		// check that radii are large enough
+		double radiiCheck = Px1 / Prx + Py1 / Pry;
+		if (radiiCheck > 1) {
+			rx = Math.sqrt(radiiCheck) * rx;
+			ry = Math.sqrt(radiiCheck) * ry;
+			Prx = rx * rx;
+			Pry = ry * ry;
+		}
+
+		// Step 2 : Compute (cx1, cy1)
+		double sign = (largeArcFlag == sweepFlag) ? -1 : 1;
+		double sq = ((Prx * Pry) - (Prx * Py1) - (Pry * Px1))
+		/ ((Prx * Py1) + (Pry * Px1));
+		sq = (sq < 0) ? 0 : sq;
+		double coef = (sign * Math.sqrt(sq));
+		double cx1 = coef * ((rx * y1) / ry);
+		double cy1 = coef * -((ry * x1) / rx);
+
+		double sx2 = (x0 + x) / 2.0;
+		double sy2 = (y0 + y) / 2.0;
+		double cx = sx2 + (cosAngle * cx1 - sinAngle * cy1);
+		double cy = sy2 + (sinAngle * cx1 + cosAngle * cy1);
+
+		// Step 4 : Compute the angleStart (angle1) and the angleExtent (dangle)
+		double ux = (x1 - cx1) / rx;
+		double uy = (y1 - cy1) / ry;
+		double vx = (-x1 - cx1) / rx;
+		double vy = (-y1 - cy1) / ry;
+		double p, n;
+
+		// Compute the angle start
+		n = Math.sqrt((ux * ux) + (uy * uy));
+		p = ux; // (1 * ux) + (0 * uy)
+		sign = (uy < 0) ? -1.0 : 1.0;
+		double angleStart = Math.toDegrees(sign * Math.acos(p / n));
+
+		// Compute the angle extent
+		n = Math.sqrt((ux * ux + uy * uy) * (vx * vx + vy * vy));
+		p = ux * vx + uy * vy;
+		sign = (ux * vy - uy * vx < 0) ? -1.0 : 1.0;
+		double angleExtent = Math.toDegrees(sign * Math.acos(p / n));
+		if (!sweepFlag && angleExtent > 0) {
+			angleExtent -= 360f;
+		} else if (sweepFlag && angleExtent < 0) {
+			angleExtent += 360f;
+		}
+		angleExtent %= 360f;
+		angleStart %= 360f;
+
+		RectF oval = new RectF((float) (cx - rx), (float) (cy - ry), (float) (cx + rx), (float) (cy + ry));
+		path.addArc(oval, (float) angleStart, (float) angleExtent);
+	}
     
     private SVGElement getElementByTag(String tag, SVGElement parent) {
     	SVGElement ret = null;
@@ -1021,6 +1102,8 @@ public class SvgDecoder extends Decoder {
     public class SVGTagRect extends SVGFigure{
     	private Float x = null;
     	private Float y = null;
+    	private Float rx = null;
+    	private Float ry = null;
     	private Float width = null;
     	private Float height = null;
     	private RectF bounds = null;
@@ -1040,6 +1123,8 @@ public class SvgDecoder extends Decoder {
     		Float heightcanvas = (float)getHeight();
             this.x = getFloatAttr("x", widthcanvas);
     		this.y = getFloatAttr("y", heightcanvas);
+    		this.rx = getFloatAttr("rx", widthcanvas);
+    		this.ry = getFloatAttr("ry", heightcanvas);
     		this.width = getFloatAttr("width", widthcanvas);
     		this.height = getFloatAttr("height", heightcanvas);
     		this.bounds = new RectF(this.x, this.y, this.x + this.width, this.y + this.width);
@@ -1050,16 +1135,24 @@ public class SvgDecoder extends Decoder {
 		@Override
     	public void drawData(Canvas c) {
 			if(this.paintFill != null) {
-				c.drawRect(this.x, this.y,
-						   this.x + this.width, 
-						   this.y + this.height, 
-						   this.paintFill);
+				if (this.rx <= 0f && this.ry <= 0f) {
+					c.drawRect(this.x, this.y,
+							   this.x + this.width, 
+							   this.y + this.height, 
+							   this.paintFill);
+				} else {
+					c.drawRoundRect(this.bounds, this.rx, this.ry, this.paintFill);
+				}
 			}
 			if(this.paintStroke != null) {
-				c.drawRect(this.x, this.y, 
-						   this.x + this.width, 
-						   this.y + this.height, 
-						   this.paintFill);
+				if (this.rx <= 0f && this.ry <= 0f) {
+					c.drawRect(this.x, this.y, 
+							   this.x + this.width, 
+							   this.y + this.height, 
+							   this.paintStroke);
+				} else {
+					c.drawRoundRect(this.bounds, this.rx, this.ry, this.paintStroke);
+				}
 			}
     	}
     }
@@ -1160,9 +1253,20 @@ public class SvgDecoder extends Decoder {
             }
             paint.setShader(shader);
             paint.setStyle(Paint.Style.FILL);
-            if (fillString != null && fillString.startsWith("#")) {
-                try {
-                	Integer color = Integer.parseInt(fillString.substring(1), 16);
+            if (fillString != null) {
+            	if(fillString.equalsIgnoreCase("none")) {
+            		paint.setShader(null);
+            		paint.setColor(Color.TRANSPARENT);
+            	} else {
+            		Integer color = colors.get(fillString);
+            		if(color == null) {
+		                try {
+		                	color = Integer.parseInt(fillString.substring(1), 16);
+		                	color = (fillString.length() == 4) ? hex3Tohex6(color) : color;
+		                } catch (NumberFormatException nfe) {
+		                	color = Color.TRANSPARENT;
+		                }
+            		}
                     int c = (0xFFFFFF & color) | 0xFF000000;
                     paint.setColor(c);
                     String opacitystr = getStyleAttr("opacity");
@@ -1176,25 +1280,33 @@ public class SvgDecoder extends Decoder {
                     } else {
                     	paint.setAlpha((int) (255 * opacity));
                     }
-                } catch (NumberFormatException nfe) {
-                	paint.setColor(0xFF000000);
-                }
+            	}
             }
 			return paint;
 		}
+		
+		// convert 0xRGB into 0xRRGGBB
+		private int hex3Tohex6(int x) {
+			return  (x & 0xF00) << 8 | (x & 0xF00) << 12 |
+			(x & 0xF0) << 4 | (x & 0xF0) << 8 |
+			(x & 0xF) << 4 | (x & 0xF);
+		}
+
 
 		protected Paint getStrokePaint() {
 			Paint paint = new Paint();
 			paint.setAntiAlias(true);
 			paint.setAlpha(255);
-			Integer color = null;
 			String strokeString = getStyleAttr("stroke");
-            if (strokeString != null && !strokeString.startsWith("#")) {
+    		Integer color = colors.get(strokeString);
+    		if(color == null && strokeString != null) {
                 try {
                 	color = Integer.parseInt(strokeString.substring(1), 16);
+                	color = (strokeString.length() == 4) ? hex3Tohex6(color) : color;
                 } catch (NumberFormatException nfe) {
+                	color = Color.TRANSPARENT;
                 }
-            }
+    		}
             if (color != null) {
                 int c = (0xFFFFFF & color) | 0xFF000000;
                 paint.setColor(c);
@@ -1495,6 +1607,135 @@ public class SvgDecoder extends Decoder {
 		}
     }
 
+    public class SVGTagText extends SVGFigure{
+
+    	private Float x = 0f;
+    	private Float y = 0f;
+    	
+    	public SVGTagText(String tag, SVGElement parent) {
+			// "text"
+			super(SvgDecoder.TAG_SVG_TEXT, parent);
+		}
+
+		@Override
+    	public void init() {
+			super.init();
+			Float widthcanvas = (float)getWidth();
+    		Float heightcanvas = (float)getHeight();
+    		this.x = getFloatAttr("x", widthcanvas);
+    		this.y = getFloatAttr("y", heightcanvas);
+    		String valign = getAttr("alignment-baseline");
+    		
+    		Float fontSize = getFloatAttr("font-size", heightcanvas);
+    		if(fontSize != 0f) { //10f
+				if(this.paintFill != null) {
+					this.paintFill.setTextSize(fontSize);
+				}
+				if(this.paintStroke != null) {
+					this.paintStroke.setTextSize(fontSize);
+				}
+    		}
+    		
+			String face = getAttr("font-family");
+			String style = getAttr("font-style");
+			String weight = getAttr("font-weight");
+
+			if (face != null || style != null || weight != null) {
+				int styleParam = Typeface.NORMAL;
+				if ("italic".equals(style)) {
+					styleParam |= Typeface.ITALIC;
+				}
+				if ("bold".equals(weight)) {
+					styleParam |= Typeface.BOLD;
+				}
+				Typeface typeface = Typeface.create(face, styleParam);
+
+				if (typeface != null) {
+					if(this.paintFill != null) {
+						this.paintFill.setTypeface(typeface);
+					}
+					if(this.paintStroke != null) {
+						this.paintStroke.setTypeface(typeface);
+					}
+				}
+			}
+			String alignt = getAttr("text-anchor");
+			if (alignt != null) {
+				Align align = Align.LEFT;
+				if ("middle".equals(align)) {
+					align = Align.CENTER;
+				} else if ("end".equals(align)) {
+					align = Align.RIGHT;
+				} else {
+					align = Align.LEFT;
+				}
+				if(this.paintFill != null) {
+					this.paintFill.setTextAlign(align);
+				}
+				if(this.paintStroke != null) {
+					this.paintStroke.setTextAlign(align);
+				}
+			}
+
+		}
+		
+		@Override
+    	public void drawData(Canvas c) {
+			if(this.data != null) {
+				if(this.paintFill != null) {
+					c.drawText(this.data, this.x, this.y, this.paintFill);
+				}
+				if(this.paintStroke != null) {
+					c.drawText(this.data, this.x, this.y, this.paintStroke);
+				}
+			}
+    	}
+
+    }
+
+    
+    public class SVGTagUse extends SVGElement{
+
+    	public SVGTagUse(String tag, SVGElement parent) {
+			// "use"
+			super(SvgDecoder.TAG_SVG_USE, parent);
+		}
+
+		@Override
+    	public void init() {
+			String href = getAttr("xlink:href");
+			String attTransform = getAttr("transform");
+			String attX = getAttr("x");
+			String attY = getAttr("y");
+			String attWidth = getAttr("width");
+			String attHeight = getAttr("height");
+			String transform = null;
+			if (attTransform != null || attX != null || attY != null) {
+				transform = "";
+				if (attTransform != null) {
+					transform = transform + escape(attTransform);
+				}
+				if (attX != null || attY != null) {
+					transform = transform + "translate("+ (attX != null ? escape(attX) : "0") + ","+ (attY != null ? escape(attY) : "0")+")";
+				}
+			}
+			HashMap<String,String> a = (HashMap<String, String>) this.attrs.clone();
+			a.remove("x");
+			a.remove("y");
+			a.remove("width");
+			a.remove("height");
+			a.remove("xlink:href");
+			a.remove("transform");
+			SVGElement e = new SVGTagG("g", this);
+			e.setAttrs(a);
+			if(transform != null) {
+				e.setAttr("transform", transform);
+			}
+			SVGElement t = ((SVG)getRoot()).getElementById(href.substring(1));
+			e.addElement(t);
+			super.init();
+		}
+    }
     
     public class SVGTagStop extends SVGElement{
     	private float offset = 0f;
@@ -1607,6 +1848,27 @@ public class SvgDecoder extends Decoder {
 			return null;
 		}
 		
+		public SVGElement getElementById(String id) {
+			return searchElementById(id, this);
+		}
+		
+		private SVGElement searchElementById(String id, SVGElement element) {
+			int size = element.getElementsSize();
+    		for(int i = 0; i < size; i++) {
+    			SVGElement e = element.getElement(i);
+    			String attr = e.getAttr("id");
+    			if(attr != null && attr.equals(id)) {
+    				return e;
+    			}
+    			SVGElement ret = searchElementById(id, e);
+    			if(ret != null) {
+    				return ret;
+    			}
+    		}
+    		return null;
+		}
+
+		
 		private SVGElement searchGradientById(String id, SVGElement element) {
 			int size = element.getElementsSize();
     		for(int i = 0; i < size; i++) {
@@ -1699,10 +1961,10 @@ public class SvgDecoder extends Decoder {
     }
     
     public class SVGElement {
-    	private HashMap<String,String> attrs = new HashMap<String,String>();
+    	protected HashMap<String,String> attrs = new HashMap<String,String>();
     	private Vector<SVGElement> elements = new Vector<SVGElement>();
     	private SVGElement parent = null;
-    	private String data = null;
+    	protected String data = null;
     	private String name = null;
     	
 		public SVGElement(String tag, SVGElement parent) {
@@ -1742,6 +2004,9 @@ public class SvgDecoder extends Decoder {
     		e.setBounds(x1, y1, x2, y2);
     	}
     	
+    	public void setAttrs(HashMap<String,String> attrs) {
+    		this.attrs = attrs;
+    	}
     	
     	public void setAttr(String attr, String value) {
     		this.attrs.put(attr, value);
@@ -2146,5 +2411,156 @@ public class SvgDecoder extends Decoder {
 			skipNumberSeparator();
 			return f;
 		}
+	}
+	
+	private final static HashMap<String, Integer> colors = new HashMap<String, Integer>();
+	static {
+		  colors.put("aliceblue", 0xf0f8ff);
+		  colors.put("antiquewhite", 0xfaebd7);
+		  colors.put("aqua", 0x00ffff);
+		  colors.put("aquamarine", 0x7fffd4);
+		  colors.put("azure", 0xf0ffff);
+		  colors.put("beige", 0xf5f5dc);
+		  colors.put("bisque", 0xffe4c4);
+		  colors.put("black", 0x000000);
+		  colors.put("blanchedalmond", 0xffebcd);
+		  colors.put("blue", 0x0000ff);
+		  colors.put("blueviolet", 0x8a2be2);
+		  colors.put("brown", 0xa52a2a);
+		  colors.put("burlywood", 0xdeb887);
+		  colors.put("cadetblue", 0x5f9ea0);
+		  colors.put("chartreuse", 0x7fff00);
+		  colors.put("chocolate", 0xd2691e);
+		  colors.put("coral", 0xff7f50);
+		  colors.put("cornflowerblue", 0x6495ed);
+		  colors.put("cornsilk", 0xfff8dc);
+		  colors.put("crimson", 0xdc143c);
+		  colors.put("cyan", 0x00ffff);
+		  colors.put("darkblue", 0x00008b);
+		  colors.put("darkcyan", 0x008b8b);
+		  colors.put("darkgoldenrod", 0xb8860b);
+		  colors.put("darkgray", 0xa9a9a9);
+		  colors.put("darkgreen", 0x006400);
+		  colors.put("darkgrey", 0xa9a9a9);
+		  colors.put("darkkhaki", 0xbdb76b);
+		  colors.put("darkmagenta", 0x8b008b);
+		  colors.put("darkolivegreen", 0x556b2f);
+		  colors.put("darkorange", 0xff8c00);
+		  colors.put("darkorchid", 0x9932cc);
+		  colors.put("darkred", 0x8b0000);
+		  colors.put("darksalmon", 0xe9967a);
+		  colors.put("darkseagreen", 0x8fbc8f);
+		  colors.put("darkslateblue", 0x483d8b);
+		  colors.put("darkslategray", 0x2f4f4f);
+		  colors.put("darkslategrey", 0x2f4f4f);
+		  colors.put("darkturquoise", 0x00ced1);
+		  colors.put("darkviolet", 0x9400d3);
+		  colors.put("deeppink", 0xff1493);
+		  colors.put("deepskyblue", 0x00bfff);
+		  colors.put("dimgray", 0x696969);
+		  colors.put("dimgrey", 0x696969);
+		  colors.put("dodgerblue", 0x1e90ff);
+		  colors.put("firebrick", 0xb22222);
+		  colors.put("floralwhite", 0xfffaf0);
+		  colors.put("forestgreen", 0x228b22);
+		  colors.put("fuchsia", 0xff00ff);
+		  colors.put("gainsboro", 0xdcdcdc);
+		  colors.put("ghostwhite", 0xf8f8ff);
+		  colors.put("gold", 0xffd700);
+		  colors.put("goldenrod", 0xdaa520);
+		  colors.put("gray", 0x808080);
+		  colors.put("green", 0x008000);
+		  colors.put("greenyellow", 0xadff2f);
+		  colors.put("grey", 0x808080);
+		  colors.put("honeydew", 0xf0fff0);
+		  colors.put("hotpink", 0xff69b4);
+		  colors.put("indianred", 0xcd5c5c);
+		  colors.put("indigo", 0x4b0082);
+		  colors.put("ivory", 0xfffff0);
+		  colors.put("khaki", 0xf0e68c);
+		  colors.put("lavender", 0xe6e6fa);
+		  colors.put("lavenderblush", 0xfff0f5);
+		  colors.put("lawngreen", 0x7cfc00);
+		  colors.put("lemonchiffon", 0xfffacd);
+		  colors.put("lightblue", 0xadd8e6);
+		  colors.put("lightcoral", 0xf08080);
+		  colors.put("lightcyan", 0xe0ffff);
+		  colors.put("lightgoldenrodyellow", 0xfafad2);
+		  colors.put("lightgray", 0xd3d3d3);
+		  colors.put("lightgreen", 0x90ee90);
+		  colors.put("lightgrey", 0xd3d3d3);
+		  colors.put("lightpink", 0xffb6c1);
+		  colors.put("lightsalmon", 0xffa07a);
+		  colors.put("lightseagreen", 0x20b2aa);
+		  colors.put("lightskyblue", 0x87cefa);
+		  colors.put("lightslategray", 0x778899);
+		  colors.put("lightslategrey", 0x778899);
+		  colors.put("lightsteelblue", 0xb0c4de);
+		  colors.put("lightyellow", 0xffffe0);
+		  colors.put("lime", 0x00ff00);
+		  colors.put("limegreen", 0x32cd32);
+		  colors.put("linen", 0xfaf0e6);
+		  colors.put("magenta", 0xff00ff);
+		  colors.put("maroon", 0x800000);
+		  colors.put("mediumaquamarine", 0x66cdaa);
+		  colors.put("mediumblue", 0x0000cd);
+		  colors.put("mediumorchid", 0xba55d3);
+		  colors.put("mediumpurple", 0x9370db);
+		  colors.put("mediumseagreen", 0x3cb371);
+		  colors.put("mediumslateblue", 0x7b68ee);
+		  colors.put("mediumspringgreen", 0x00fa9a);
+		  colors.put("mediumturquoise", 0x48d1cc);
+		  colors.put("mediumvioletred", 0xc71585);
+		  colors.put("midnightblue", 0x191970);
+		  colors.put("mintcream", 0xf5fffa);
+		  colors.put("mistyrose", 0xffe4e1);
+		  colors.put("moccasin", 0xffe4b5);
+		  colors.put("navajowhite", 0xffdead);
+		  colors.put("navy", 0x000080);
+		  colors.put("oldlace", 0xfdf5e6);
+		  colors.put("olive", 0x808000);
+		  colors.put("olivedrab", 0x6b8e23);
+		  colors.put("orange", 0xffa500);
+		  colors.put("orangered", 0xff4500);
+		  colors.put("orchid", 0xda70d6);
+		  colors.put("palegoldenrod", 0xeee8aa);
+		  colors.put("palegreen", 0x98fb98);
+		  colors.put("paleturquoise", 0xafeeee);
+		  colors.put("palevioletred", 0xdb7093);
+		  colors.put("papayawhip", 0xffefd5);
+		  colors.put("peachpuff", 0xffdab9);
+		  colors.put("peru", 0xcd853f);
+		  colors.put("pink", 0xffc0cb);
+		  colors.put("plum", 0xdda0dd);
+		  colors.put("powderblue", 0xb0e0e6);
+		  colors.put("purple", 0x800080);
+		  colors.put("red", 0xff0000);
+		  colors.put("rosybrown", 0xbc8f8f);
+		  colors.put("royalblue", 0x4169e1);
+		  colors.put("saddlebrown", 0x8b4513);
+		  colors.put("salmon", 0xfa8072);
+		  colors.put("sandybrown", 0xf4a460);
+		  colors.put("seagreen", 0x2e8b57);
+		  colors.put("seashell", 0xfff5ee);
+		  colors.put("sienna", 0xa0522d);
+		  colors.put("silver", 0xc0c0c0);
+		  colors.put("skyblue", 0x87ceeb);
+		  colors.put("slateblue", 0x6a5acd);
+		  colors.put("slategray", 0x708090);
+		  colors.put("slategrey", 0x708090);
+		  colors.put("snow", 0xfffafa);
+		  colors.put("springgreen", 0x00ff7f);
+		  colors.put("steelblue", 0x4682b4);
+		  colors.put("tan", 0xd2b48c);
+		  colors.put("teal", 0x008080);
+		  colors.put("thistle", 0xd8bfd8);
+		  colors.put("tomato", 0xff6347);
+		  colors.put("turquoise", 0x40e0d0);
+		  colors.put("violet", 0xee82ee);
+		  colors.put("wheat", 0xf5deb3);
+		  colors.put("white", 0xffffff);
+		  colors.put("whitesmoke", 0xf5f5f5);
+		  colors.put("yellow", 0xffff00);
+		  colors.put("yellowgreen", 0x9acd32);
 	}
 }
