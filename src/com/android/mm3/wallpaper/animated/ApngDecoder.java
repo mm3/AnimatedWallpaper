@@ -221,6 +221,9 @@ public class ApngDecoder extends Decoder{
      * @return delay in milliseconds
      */
     public int getDelay(int n) {
+    	if (numFrames <= 0) {
+    		return Integer.MAX_VALUE;
+    	}
     	n = (n < 0) ? 0 : n % numFrames;
     	int den = frames.elementAt(n).delay_den;
     	int num = frames.elementAt(n).delay_num;
@@ -253,8 +256,13 @@ public class ApngDecoder extends Decoder{
      * @return BufferedBitmap representation of frame, or null if n is invalid.
      */
     public Bitmap getFrame(int n) {
-        if (numFrames <= 0)
-                return null;
+        if (numFrames <= 0) {
+        	if(frames != null && frames.elementAt(0) != null) {
+        		return frames.elementAt(0).image;
+        	} else {
+        		return null;
+        	}
+        }
         n = n % numFrames;
         return frames.elementAt(n).image;
     }
